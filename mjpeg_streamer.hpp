@@ -72,6 +72,7 @@ class MJPEGStreamer
     std::thread thread_listener_;
     std::mutex clients_mutex_;
     std::mutex payloads_mutex_;
+    std::mutex send_mutex_;
     std::condition_variable condition_;
 
     std::vector<std::thread> workers_;
@@ -139,21 +140,30 @@ void MJPEGStreamer::start()
                     this->payloads_.pop();
                 }
 
-                std::stringstream header_stream;
-                header_stream << "--boundarydonotcross\r\nContent-Type: image/jpeg\r\nContent-Length: "
-                              << payload.buffer.size() << "\r\n\r\n";
-                std::string header = header_stream.str();
+                std::stringstream stream;
+                stream << "--boundarydonotcross\r\nContent-Type: image/jpeg\r\nContent-Length: "
+                       << payload.buffer.size() << "\r\n\r\n"
+                       << payload.buffer;
+                std::string msg = stream.str();
 
-                ::write(payload.sd, header.c_str(), header.size());
-                if (::write(payload.sd, payload.buffer.c_str(), payload.buffer.size()) <
-                    static_cast<int>(payload.buffer.size()))
+                int n;
+                {
+                    std::unique_lock<std::mutex> lock(this->send_mutex_);
+                    n = ::write(payload.sd, msg.c_str(), msg.size());
+                }
+
+                if (n < static_cast<int>(msg.size()))
                 {
                     std::unique_lock<std::mutex> lock(this->clients_mutex_);
-                    this->path2clients_[payload.path].erase(std::remove(this->path2clients_[payload.path].begin(),
-                                                                        this->path2clients_[payload.path].end(),
-                                                                        payload.sd),
-                                                            this->path2clients_[payload.path].end());
-                    ::close(payload.sd);
+                    if (std::find(this->path2clients_[payload.path].begin(), this->path2clients_[payload.path].end(),
+                                  payload.sd) != this->path2clients_[payload.path].end())
+                    {
+                        this->path2clients_[payload.path].erase(std::remove(this->path2clients_[payload.path].begin(),
+                                                                            this->path2clients_[payload.path].end(),
+                                                                            payload.sd),
+                                                                this->path2clients_[payload.path].end());
+                        ::close(payload.sd);
+                    }
                 }
             }
         });
@@ -173,7 +183,7 @@ void MJPEGStreamer::start()
         FD_ZERO(&fd);
 
         struct timeval to;
-        to.tv_sec = 0;
+        to.tv_sec = 1;
         to.tv_usec = 0;
 
         while (this->master_socket_ > 0)
@@ -204,7 +214,10 @@ void MJPEGStreamer::start()
                     continue;
                 }
 
-                ::write(new_socket, header.c_str(), header.size());
+                {
+                    std::unique_lock<std::mutex> lock(this->send_mutex_);
+                    ::write(new_socket, header.c_str(), header.size());
+                }
 
                 std::unique_lock<std::mutex> lock(this->clients_mutex_);
                 this->path2clients_[path].push_back(new_socket);
