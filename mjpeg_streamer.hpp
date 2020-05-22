@@ -33,6 +33,7 @@ SOFTWARE.
 #include <unistd.h>
 
 #include <algorithm>
+#include <array>
 #include <condition_variable>
 #include <iostream>
 #include <mutex>
@@ -46,6 +47,7 @@ SOFTWARE.
 
 namespace nadjieb
 {
+constexpr int NUM_SEND_MUTICES = 100;
 class MJPEGStreamer
 {
   public:
@@ -72,7 +74,7 @@ class MJPEGStreamer
     std::thread thread_listener_;
     std::mutex clients_mutex_;
     std::mutex payloads_mutex_;
-    std::mutex send_mutex_;
+    std::array<std::mutex, NUM_SEND_MUTICES> send_mutices_;
     std::condition_variable condition_;
 
     std::vector<std::thread> workers_;
@@ -148,7 +150,7 @@ void MJPEGStreamer::start()
 
                 int n;
                 {
-                    std::unique_lock<std::mutex> lock(this->send_mutex_);
+                    std::unique_lock<std::mutex> lock(this->send_mutices_[payload.sd % NUM_SEND_MUTICES]);
                     n = ::write(payload.sd, msg.c_str(), msg.size());
                 }
 
@@ -215,7 +217,7 @@ void MJPEGStreamer::start()
                 }
 
                 {
-                    std::unique_lock<std::mutex> lock(this->send_mutex_);
+                    std::unique_lock<std::mutex> lock(this->send_mutices_[new_socket % NUM_SEND_MUTICES]);
                     ::write(new_socket, header.c_str(), header.size());
                 }
 
