@@ -1,6 +1,6 @@
 #include <opencv2/opencv.hpp>
 
-#include "mjpeg_streamer.hpp"
+#include <nadjieb/mjpeg_streamer.hpp>
 
 // for convenience
 using MJPEGStreamer = nadjieb::MJPEGStreamer;
