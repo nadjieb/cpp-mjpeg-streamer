@@ -57,6 +57,7 @@ class MJPEGStreamer
     void start();
     void stop();
     void publish(const std::string &path, const std::string &buffer);
+    bool shutdownFromBrowser();
 
   private:
     struct Payload
@@ -69,6 +70,7 @@ class MJPEGStreamer
     int port_;
     int master_socket_ = -1;
     int num_workers_;
+    bool shutdownFlag = false;
     struct sockaddr_in address_;
 
     std::thread thread_listener_;
@@ -209,6 +211,11 @@ void MJPEGStreamer::start()
                 if (!req.empty())
                 {
                     path = req.substr(req.find("GET") + 4, req.find("HTTP/") - req.find("GET") - 5);
+                
+                    if (path == "/shutdown")
+                    {
+                        shutdownFlag = true;
+                    }
                 }
                 else
                 {
@@ -289,5 +296,10 @@ void MJPEGStreamer::publish(const std::string &path, const std::string &buffer)
             condition_.notify_one();
         }
     }
+}
+
+bool MJPEG_streamer_module::shutdownFromBrowser()
+{
+    return shutdownFlag;
 }
 } // namespace nadjieb
