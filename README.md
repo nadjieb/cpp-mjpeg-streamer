@@ -5,6 +5,7 @@
 * Set different streams depending on HTTP GET path
 * Multi-threaded streaming
 * Single Header-only library
+* graceful shutdown
 
 ## Example of Usage
 ### C++ Example
@@ -54,6 +55,12 @@ int main()
         std::vector<uchar> buff_hsv;
         cv::imencode(".jpg", hsv, buff_hsv, params);
         streamer.publish("/hsv", std::string(buff_hsv.begin(), buff_hsv.end()));
+    
+        // Visit /shutdown to break from the loop and graceful shutdown
+        if (streamer.shutdownFromBrowser())
+        {
+            break;
+        }
     }
     streamer.stop();
 }
