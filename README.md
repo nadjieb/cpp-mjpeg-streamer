@@ -1,4 +1,4 @@
-# C++ MJPEG over HTTP Library
+![C++ MJPEG over HTTP Library](doc/images/cpp_mjpeg_streamer.png)
 
 ## Features
 * No OpenCV dependencies (Clear problems separation)
@@ -7,12 +7,33 @@
 * Single Header-only library
 * graceful shutdown
 
+## CMake Integration
+### External
+```CMake
+# CMakeLists.txt
+find_package(nadjieb_mjpeg_streamer REQUIRED)
+...
+add_library(foo ...)
+...
+target_link_libraries(foo PRIVATE nadjieb_mjpeg_streamer::nadjieb_mjpeg_streamer)
+```
+
+### Embedded
+```CMake
+# CMakeLists.txt
+add_subdirectory(nadjieb_mjpeg_streamer)
+...
+add_library(foo ...)
+...
+target_link_libraries(foo PRIVATE nadjieb_mjpeg_streamer::nadjieb_mjpeg_streamer)
+```
+
 ## Example of Usage
 ### C++ Example
-```cpp
+```c++
 #include <opencv2/opencv.hpp>
 
-#include "mjpeg_streamer.hpp"
+#include <nadjieb/mjpeg_streamer.hpp>
 
 // for convenience
 using MJPEGStreamer = nadjieb::MJPEGStreamer;
@@ -76,7 +97,12 @@ int main()
 </html>
 ```
 
-### Compile Example File
+### Compile and Run Example
+Compile the example.cpp from the examples folder and run it
 ```sh
-g++ example.cpp -o stream -std=c++11 -lpthread `pkg-config --cflags --libs opencv4`
+cd examples
+mkdir build && cd build
+cmake .. && make
+./example
 ```
+then open the index.html in browser to see the streams.
