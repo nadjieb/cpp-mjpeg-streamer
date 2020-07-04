@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.1)
 ## PROJECT
 ## name and version
 ##
-project(nadjieb_mjpeg_streamer VERSION 1.0.0 LANGUAGES CXX)
+project(nadjieb_mjpeg_streamer VERSION 1.1.0 LANGUAGES CXX)
 
 ##
 ## DEPENDENCIES

@@ -45,6 +45,23 @@ SOFTWARE.
 #include <utility>
 #include <vector>
 
+/// The major version number
+#define NADJIEB_MJPEG_STREAMER_VERSION_MAJOR 1
+
+/// The minor version number
+#define NADJIEB_MJPEG_STREAMER_VERSION_MINOR 1
+
+/// The patch number
+#define NADJIEB_MJPEG_STREAMER_VERSION_PATCH 0
+
+/// The complete version number
+#define NADJIEB_MJPEG_STREAMER_VERSION_CODE                                                                            \
+    (NADJIEB_MJPEG_STREAMER_VERSION_MAJOR * 10000 + NADJIEB_MJPEG_STREAMER_VERSION_MINOR * 100 +                       \
+     NADJIEB_MJPEG_STREAMER_VERSION_PATCH)
+
+/// Version number as string
+#define NADJIEB_MJPEG_STREAMER_VERSION_STRING "10100"
+
 namespace nadjieb
 {
 constexpr int NUM_SEND_MUTICES = 100;
@@ -57,7 +74,8 @@ class MJPEGStreamer
     void start();
     void stop();
     void publish(const std::string &path, const std::string &buffer);
-    bool shutdownFromBrowser();
+    void setShutdownTarget(const std::string &target);
+    bool isAlive();
 
   private:
     struct Payload
@@ -70,8 +88,8 @@ class MJPEGStreamer
     int port_;
     int master_socket_ = -1;
     int num_workers_;
-    bool shutdownFlag = false;
     struct sockaddr_in address_;
+    std::string shutdown_target_ = "/shutdown";
 
     std::thread thread_listener_;
     std::mutex clients_mutex_;
@@ -128,7 +146,7 @@ void MJPEGStreamer::start()
     for (auto i = 0; i < num_workers_; ++i)
     {
         workers_.emplace_back([this]() {
-            while (this->master_socket_ > 0)
+            while (this->isAlive())
             {
                 Payload payload;
 
@@ -190,7 +208,7 @@ void MJPEGStreamer::start()
         to.tv_sec = 1;
         to.tv_usec = 0;
 
-        while (this->master_socket_ > 0)
+        while (this->isAlive())
         {
             FD_SET(this->master_socket_, &fd);
 
@@ -207,19 +225,19 @@ void MJPEGStreamer::start()
                 std::string req(4096, 0);
                 ::read(new_socket, &req[0], req.size());
 
-                std::string path;
-                if (!req.empty())
-                {
-                    path = req.substr(req.find("GET") + 4, req.find("HTTP/") - req.find("GET") - 5);
-                
-                    if (path == "/shutdown")
-                    {
-                        shutdownFlag = true;
-                    }
-                }
-                else
+                if (req.empty())
                 {
                     ::close(new_socket);
+                    continue;
+                }
+
+                auto path = req.substr(req.find("GET") + 4, req.find("HTTP/") - req.find("GET") - 5);
+                if (path == this->shutdown_target_)
+                {
+                    ::close(new_socket);
+                    std::unique_lock<std::mutex> lock(this->payloads_mutex_);
+                    this->master_socket_ = -1;
+                    this->condition_.notify_all();
                     continue;
                 }
 
@@ -239,7 +257,7 @@ void MJPEGStreamer::start()
 
 void MJPEGStreamer::stop()
 {
-    if (master_socket_ > 0)
+    if (isAlive())
     {
         std::unique_lock<std::mutex> lock(payloads_mutex_);
         master_socket_ = -1;
@@ -288,18 +306,22 @@ void MJPEGStreamer::publish(const std::string &path, const std::string &buffer)
         clients = path2clients_[path];
     }
 
+    for (auto i : path2clients_[path])
     {
-        for (auto i : path2clients_[path])
-        {
-            std::unique_lock<std::mutex> lock(payloads_mutex_);
-            payloads_.emplace(Payload({buffer, path, i}));
-            condition_.notify_one();
-        }
+        std::unique_lock<std::mutex> lock(payloads_mutex_);
+        payloads_.emplace(Payload({buffer, path, i}));
+        condition_.notify_one();
     }
 }
 
-bool MJPEG_streamer_module::shutdownFromBrowser()
+void MJPEGStreamer::setShutdownTarget(const std::string &target)
 {
-    return shutdownFlag;
+    shutdown_target_ = target;
+}
+
+bool MJPEGStreamer::isAlive()
+{
+    std::unique_lock<std::mutex> lock(payloads_mutex_);
+    return master_socket_ > 0;
 }
 } // namespace nadjieb

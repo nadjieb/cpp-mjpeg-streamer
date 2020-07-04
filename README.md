@@ -5,7 +5,7 @@
 * Set different streams depending on HTTP GET path
 * Multi-threaded streaming
 * Single Header-only library
-* graceful shutdown
+* Graceful shutdown
 
 ## CMake Integration
 ### External
@@ -50,11 +50,18 @@ int main()
     std::vector<int> params = {cv::IMWRITE_JPEG_QUALITY, 90};
 
     MJPEGStreamer streamer(8080);
-    // By default 1 worker is used for streaming, if you want to use 4 workers
-    // MJPEGStreamer streamer(8080, 4);
+    // By default 1 worker is used for streaming
+    // if you want to use 4 workers:
+    //      MJPEGStreamer streamer(8080, 4);
+
+    // By default /shutdown is the target to graceful shutdown the streamer
+    // if you want to change target to graceful shutdown:
+    //      streamer.setShutdownTarget("/stop");
 
     streamer.start();
-    while (true)
+
+    // Visit /shutdown or another defined target to stop the loop and graceful shutdown
+    while (streamer.isAlive())
     {
         cv::Mat frame;
         cap >> frame;
@@ -76,13 +83,8 @@ int main()
         std::vector<uchar> buff_hsv;
         cv::imencode(".jpg", hsv, buff_hsv, params);
         streamer.publish("/hsv", std::string(buff_hsv.begin(), buff_hsv.end()));
-    
-        // Visit /shutdown to break from the loop and graceful shutdown
-        if (streamer.shutdownFromBrowser())
-        {
-            break;
-        }
     }
+
     streamer.stop();
 }
 ```
