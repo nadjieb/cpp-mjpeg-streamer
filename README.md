@@ -1,4 +1,4 @@
-![C++ MJPEG over HTTP Library](doc/images/cpp_mjpeg_streamer.png)
+![C++ MJPEG over HTTP Library](https://raw.githubusercontent.com/nadjieb/cpp-mjpeg-streamer/master/doc/images/cpp_mjpeg_streamer.png)
 
 ## Features
 * No OpenCV dependencies (Clear problems separation)
@@ -100,11 +100,11 @@ int main()
 ```
 
 ### Compile and Run Example
-Compile the example.cpp from the examples folder and run it
+Compile the `example.cpp` from the examples folder and run it
 ```sh
 cd examples
 mkdir build && cd build
 cmake .. && make
 ./example
 ```
-then open the index.html in browser to see the streams.
+then open the `index.html` in browser to see the streams.
