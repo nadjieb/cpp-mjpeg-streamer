@@ -259,6 +259,11 @@ class MJPEGStreamer
             result = result.substr(0, result.find(' '));
             return std::string(result);
         }
+
+        std::string method() const
+        {
+            return start_line.substr(0, start_line.find(' '));
+        }
     };
 
     int master_socket_ = -1;
@@ -328,14 +333,27 @@ class MJPEGStreamer
     std::function<void()> listener()
     {
         return [this]() {
-            HTTPMessage res;
-            res.start_line = "HTTP/1.1 200 OK";
-            res.headers["Connection"] = "close";
-            res.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, pre-check=0, post-check=0, max-age=0";
-            res.headers["Pragma"] = "no-cache";
-            res.headers["Content-Type"] = "multipart/x-mixed-replace; boundary=boundarydonotcross";
+            HTTPMessage bad_request_res;
+            bad_request_res.start_line = "HTTP/1.1 400 Bad Request";
 
-            auto res_str = res.serialize();
+            HTTPMessage shutdown_res;
+            shutdown_res.start_line = "HTTP/1.1 200 OK";
+
+            HTTPMessage method_not_allowed_res;
+            method_not_allowed_res.start_line = "HTTP/1.1 405 Method Not Allowed";
+
+            HTTPMessage init_res;
+            init_res.start_line = "HTTP/1.1 200 OK";
+            init_res.headers["Connection"] = "close";
+            init_res.headers["Cache-Control"] =
+                "no-cache, no-store, must-revalidate, pre-check=0, post-check=0, max-age=0";
+            init_res.headers["Pragma"] = "no-cache";
+            init_res.headers["Content-Type"] = "multipart/x-mixed-replace; boundary=boundarydonotcross";
+
+            auto bad_request_res_str = bad_request_res.serialize();
+            auto shutdown_res_str = shutdown_res.serialize();
+            auto method_not_allowed_res_str = method_not_allowed_res.serialize();
+            auto init_res_str = init_res.serialize();
 
             int addrlen = sizeof(this->address_);
 
@@ -367,6 +385,7 @@ class MJPEGStreamer
                     ::read(new_socket, &buff[0], buff.size());
                     if (buff.empty())
                     {
+                        ::write(new_socket, bad_request_res_str.c_str(), bad_request_res_str.size());
                         ::close(new_socket);
                         continue;
                     }
@@ -375,17 +394,24 @@ class MJPEGStreamer
 
                     if (req.target() == this->shutdown_target_)
                     {
+                        ::write(new_socket, shutdown_res_str.c_str(), shutdown_res_str.size());
                         ::close(new_socket);
+
                         std::unique_lock<std::mutex> lock(this->payloads_mutex_);
                         this->master_socket_ = -1;
                         this->condition_.notify_all();
+
                         continue;
                     }
 
+                    if (req.method() != "GET")
                     {
-                        std::unique_lock<std::mutex> lock(this->send_mutices_.at(new_socket % NUM_SEND_MUTICES));
-                        ::write(new_socket, res_str.c_str(), res_str.size());
+                        ::write(new_socket, method_not_allowed_res_str.c_str(), method_not_allowed_res_str.size());
+                        ::close(new_socket);
+                        continue;
                     }
+
+                    ::write(new_socket, init_res_str.c_str(), init_res_str.size());
 
                     std::unique_lock<std::mutex> lock(this->clients_mutex_);
                     this->path2clients_[req.target()].push_back(new_socket);
