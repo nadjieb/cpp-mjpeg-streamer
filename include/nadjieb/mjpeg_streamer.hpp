@@ -238,7 +238,7 @@ class MJPEGStreamer
 
                 int n;
                 {
-                    std::unique_lock<std::mutex> lock(this->send_mutices_[payload.sd % NUM_SEND_MUTICES]);
+                    std::unique_lock<std::mutex> lock(this->send_mutices_.at(payload.sd % NUM_SEND_MUTICES));
                     n = ::write(payload.sd, msg.c_str(), msg.size());
                 }
 
@@ -315,7 +315,7 @@ class MJPEGStreamer
                     }
 
                     {
-                        std::unique_lock<std::mutex> lock(this->send_mutices_[new_socket % NUM_SEND_MUTICES]);
+                        std::unique_lock<std::mutex> lock(this->send_mutices_.at(new_socket % NUM_SEND_MUTICES));
                         ::write(new_socket, header.c_str(), header.size());
                     }
 
