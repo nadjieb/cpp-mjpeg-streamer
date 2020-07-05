@@ -46,10 +46,10 @@ SOFTWARE.
 #include <vector>
 
 /// The major version number
-#define NADJIEB_MJPEG_STREAMER_VERSION_MAJOR 1
+#define NADJIEB_MJPEG_STREAMER_VERSION_MAJOR 2
 
 /// The minor version number
-#define NADJIEB_MJPEG_STREAMER_VERSION_MINOR 1
+#define NADJIEB_MJPEG_STREAMER_VERSION_MINOR 0
 
 /// The patch number
 #define NADJIEB_MJPEG_STREAMER_VERSION_PATCH 0
@@ -60,7 +60,7 @@ SOFTWARE.
      NADJIEB_MJPEG_STREAMER_VERSION_PATCH)
 
 /// Version number as string
-#define NADJIEB_MJPEG_STREAMER_VERSION_STRING "10100"
+#define NADJIEB_MJPEG_STREAMER_VERSION_STRING "20000"
 
 namespace nadjieb
 {
@@ -68,14 +68,126 @@ constexpr int NUM_SEND_MUTICES = 100;
 class MJPEGStreamer
 {
   public:
-    MJPEGStreamer(int port, int num_workers = 1);
-    virtual ~MJPEGStreamer();
+    MJPEGStreamer() = default;
+    virtual ~MJPEGStreamer()
+    {
+        stop();
+    }
 
-    void start();
-    void stop();
-    void publish(const std::string &path, const std::string &buffer);
-    void setShutdownTarget(const std::string &target);
-    bool isAlive();
+    MJPEGStreamer(MJPEGStreamer &&) = delete;
+    MJPEGStreamer(const MJPEGStreamer &) = delete;
+    MJPEGStreamer &operator=(MJPEGStreamer &&) = delete;
+    MJPEGStreamer &operator=(const MJPEGStreamer &) = delete;
+
+    void start(int port, int num_workers = 1)
+    {
+        ::signal(SIGPIPE, SIG_IGN);
+        master_socket_ = ::socket(AF_INET, SOCK_STREAM, 0);
+        if (master_socket_ < 0)
+        {
+            std::cerr << "ERROR: socket not created\n";
+            exit(EXIT_FAILURE);
+        }
+
+        int yes = 1;
+        if (::setsockopt(master_socket_, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char *>(&yes), sizeof(yes)) < 0)
+        {
+            std::cerr << "ERROR: setsocketopt SO_REUSEADDR\n";
+            exit(EXIT_FAILURE);
+        }
+
+        address_.sin_family = AF_INET;
+        address_.sin_addr.s_addr = INADDR_ANY;
+        address_.sin_port = htons(port);
+        if (::bind(master_socket_, reinterpret_cast<struct sockaddr *>(&address_), sizeof(address_)) < 0)
+        {
+            std::cerr << "ERROR: bind\n";
+            exit(EXIT_FAILURE);
+        }
+
+        if (::listen(master_socket_, 5) < 0)
+        {
+            std::cerr << "ERROR: listen\n";
+            exit(EXIT_FAILURE);
+        }
+
+        for (auto i = 0; i < num_workers; ++i)
+        {
+            workers_.emplace_back(worker());
+        }
+
+        thread_listener_ = std::thread(listener());
+    }
+
+    void stop()
+    {
+        if (isAlive())
+        {
+            std::unique_lock<std::mutex> lock(payloads_mutex_);
+            master_socket_ = -1;
+            condition_.notify_all();
+        }
+
+        if (!workers_.empty())
+        {
+            for (auto &w : workers_)
+            {
+                if (w.joinable())
+                {
+                    w.join();
+                }
+            }
+            workers_.clear();
+        }
+
+        if (!path2clients_.empty())
+        {
+            for (auto &p2c : path2clients_)
+            {
+                for (auto sd : p2c.second)
+                {
+                    ::close(sd);
+                }
+            }
+            path2clients_.clear();
+        }
+
+        if (thread_listener_.joinable())
+        {
+            thread_listener_.join();
+        }
+    }
+
+    void publish(const std::string &path, const std::string &buffer)
+    {
+        std::vector<int> clients;
+        {
+            std::unique_lock<std::mutex> lock(clients_mutex_);
+            if ((path2clients_.find(path) == path2clients_.end()) || (path2clients_[path].empty()))
+            {
+                return;
+            }
+            clients = path2clients_[path];
+        }
+
+        for (auto i : clients)
+        {
+            std::unique_lock<std::mutex> lock(payloads_mutex_);
+            payloads_.emplace(Payload({buffer, path, i}));
+            condition_.notify_one();
+        }
+    }
+
+    void setShutdownTarget(const std::string &target)
+    {
+        shutdown_target_ = target;
+    }
+
+    bool isAlive()
+    {
+        std::unique_lock<std::mutex> lock(payloads_mutex_);
+        return master_socket_ > 0;
+    }
 
   private:
     struct Payload
@@ -85,9 +197,7 @@ class MJPEGStreamer
         int sd;
     };
 
-    int port_;
     int master_socket_ = -1;
-    int num_workers_;
     struct sockaddr_in address_;
     std::string shutdown_target_ = "/shutdown";
 
@@ -100,52 +210,10 @@ class MJPEGStreamer
     std::vector<std::thread> workers_;
     std::queue<Payload> payloads_;
     std::unordered_map<std::string, std::vector<int>> path2clients_;
-};
 
-MJPEGStreamer::MJPEGStreamer(int port, int num_workers) : port_(port), num_workers_(num_workers)
-{
-}
-
-MJPEGStreamer::~MJPEGStreamer()
-{
-    stop();
-}
-
-void MJPEGStreamer::start()
-{
-    ::signal(SIGPIPE, SIG_IGN);
-    master_socket_ = ::socket(AF_INET, SOCK_STREAM, 0);
-    if (master_socket_ < 0)
+    std::function<void()> worker()
     {
-        std::cerr << "ERROR: socket not created\n";
-        exit(EXIT_FAILURE);
-    }
-
-    int yes = 1;
-    if (::setsockopt(master_socket_, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char *>(&yes), sizeof(yes)) < 0)
-    {
-        std::cerr << "ERROR: setsocketopt SO_REUSEADDR\n";
-        exit(EXIT_FAILURE);
-    }
-
-    address_.sin_family = AF_INET;
-    address_.sin_addr.s_addr = INADDR_ANY;
-    address_.sin_port = htons(port_);
-    if (::bind(master_socket_, reinterpret_cast<struct sockaddr *>(&address_), sizeof(address_)) < 0)
-    {
-        std::cerr << "ERROR: bind\n";
-        exit(EXIT_FAILURE);
-    }
-
-    if (::listen(master_socket_, 5) < 0)
-    {
-        std::cerr << "ERROR: listen\n";
-        exit(EXIT_FAILURE);
-    }
-
-    for (auto i = 0; i < num_workers_; ++i)
-    {
-        workers_.emplace_back([this]() {
+        return [this]() {
             while (this->isAlive())
             {
                 Payload payload;
@@ -188,140 +256,76 @@ void MJPEGStreamer::start()
                     }
                 }
             }
-        });
+        };
     }
 
-    thread_listener_ = std::thread([this]() {
-        std::string header;
-        header += "HTTP/1.0 200 OK\r\n";
-        header += "Connection: close\r\n";
-        header += "Cache-Control: no-cache, no-store, must-revalidate, pre-check=0, post-check=0, max-age=0\r\n";
-        header += "Pragma: no-cache\r\n";
-        header += "Content-Type: multipart/x-mixed-replace; boundary=boundarydonotcross\r\n\r\n";
+    std::function<void()> listener()
+    {
+        return [this]() {
+            std::string header;
+            header += "HTTP/1.1 200 OK\r\n";
+            header += "Connection: close\r\n";
+            header += "Cache-Control: no-cache, no-store, must-revalidate, pre-check=0, post-check=0, max-age=0\r\n";
+            header += "Pragma: no-cache\r\n";
+            header += "Content-Type: multipart/x-mixed-replace; boundary=boundarydonotcross\r\n\r\n";
 
-        int addrlen = sizeof(this->address_);
+            int addrlen = sizeof(this->address_);
 
-        fd_set fd;
-        FD_ZERO(&fd);
+            fd_set fd;
+            FD_ZERO(&fd);
 
-        struct timeval to;
-        to.tv_sec = 1;
-        to.tv_usec = 0;
+            struct timeval to;
+            to.tv_sec = 1;
+            to.tv_usec = 0;
 
-        while (this->isAlive())
-        {
-            FD_SET(this->master_socket_, &fd);
+            auto master_socket = this->master_socket_;
 
-            if (select(this->master_socket_ + 1, &fd, nullptr, nullptr, &to) > 0)
+            while (this->isAlive())
             {
-                auto new_socket = ::accept(this->master_socket_, reinterpret_cast<struct sockaddr *>(&(this->address_)),
-                                           reinterpret_cast<socklen_t *>(&addrlen));
-                if (new_socket < 0)
+                FD_SET(this->master_socket_, &fd);
+
+                if (select(this->master_socket_ + 1, &fd, nullptr, nullptr, &to) > 0)
                 {
-                    std::cerr << "ERROR: accept\n";
-                    exit(EXIT_FAILURE);
+                    auto new_socket =
+                        ::accept(this->master_socket_, reinterpret_cast<struct sockaddr *>(&(this->address_)),
+                                 reinterpret_cast<socklen_t *>(&addrlen));
+                    if (new_socket < 0)
+                    {
+                        std::cerr << "ERROR: accept\n";
+                        exit(EXIT_FAILURE);
+                    }
+
+                    std::string req(4096, 0);
+                    ::read(new_socket, &req[0], req.size());
+
+                    if (req.empty())
+                    {
+                        ::close(new_socket);
+                        continue;
+                    }
+
+                    auto path = req.substr(req.find("GET") + 4, req.find("HTTP/") - req.find("GET") - 5);
+                    if (path == this->shutdown_target_)
+                    {
+                        ::close(new_socket);
+                        std::unique_lock<std::mutex> lock(this->payloads_mutex_);
+                        this->master_socket_ = -1;
+                        this->condition_.notify_all();
+                        continue;
+                    }
+
+                    {
+                        std::unique_lock<std::mutex> lock(this->send_mutices_[new_socket % NUM_SEND_MUTICES]);
+                        ::write(new_socket, header.c_str(), header.size());
+                    }
+
+                    std::unique_lock<std::mutex> lock(this->clients_mutex_);
+                    this->path2clients_[path].push_back(new_socket);
                 }
-
-                std::string req(4096, 0);
-                ::read(new_socket, &req[0], req.size());
-
-                if (req.empty())
-                {
-                    ::close(new_socket);
-                    continue;
-                }
-
-                auto path = req.substr(req.find("GET") + 4, req.find("HTTP/") - req.find("GET") - 5);
-                if (path == this->shutdown_target_)
-                {
-                    ::close(new_socket);
-                    std::unique_lock<std::mutex> lock(this->payloads_mutex_);
-                    this->master_socket_ = -1;
-                    this->condition_.notify_all();
-                    continue;
-                }
-
-                {
-                    std::unique_lock<std::mutex> lock(this->send_mutices_[new_socket % NUM_SEND_MUTICES]);
-                    ::write(new_socket, header.c_str(), header.size());
-                }
-
-                std::unique_lock<std::mutex> lock(this->clients_mutex_);
-                this->path2clients_[path].push_back(new_socket);
             }
-        }
 
-        ::shutdown(master_socket_, 2);
-    });
-}
-
-void MJPEGStreamer::stop()
-{
-    if (isAlive())
-    {
-        std::unique_lock<std::mutex> lock(payloads_mutex_);
-        master_socket_ = -1;
-        condition_.notify_all();
+            ::shutdown(master_socket, 2);
+        };
     }
-
-    if (!workers_.empty())
-    {
-        for (auto &w : workers_)
-        {
-            if (w.joinable())
-            {
-                w.join();
-            }
-        }
-        workers_.clear();
-    }
-
-    if (!path2clients_.empty())
-    {
-        for (auto &p2c : path2clients_)
-        {
-            for (auto sd : p2c.second)
-            {
-                ::close(sd);
-            }
-        }
-        path2clients_.clear();
-    }
-
-    if (thread_listener_.joinable())
-    {
-        thread_listener_.join();
-    }
-}
-
-void MJPEGStreamer::publish(const std::string &path, const std::string &buffer)
-{
-    std::vector<int> clients;
-    {
-        std::unique_lock<std::mutex> lock(clients_mutex_);
-        if ((path2clients_.find(path) == path2clients_.end()) || (path2clients_[path].empty()))
-        {
-            return;
-        }
-        clients = path2clients_[path];
-    }
-
-    for (auto i : path2clients_[path])
-    {
-        std::unique_lock<std::mutex> lock(payloads_mutex_);
-        payloads_.emplace(Payload({buffer, path, i}));
-        condition_.notify_one();
-    }
-}
-
-void MJPEGStreamer::setShutdownTarget(const std::string &target)
-{
-    shutdown_target_ = target;
-}
-
-bool MJPEGStreamer::isAlive()
-{
-    std::unique_lock<std::mutex> lock(payloads_mutex_);
-    return master_socket_ > 0;
-}
+};
 } // namespace nadjieb

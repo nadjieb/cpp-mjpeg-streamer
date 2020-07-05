@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.1)
 ## PROJECT
 ## name and version
 ##
-project(nadjieb_mjpeg_streamer VERSION 1.1.0 LANGUAGES CXX)
+project(nadjieb_mjpeg_streamer VERSION 2.0.0 LANGUAGES CXX)
 
 ##
 ## DEPENDENCIES
@@ -15,6 +15,12 @@ find_package(Threads REQUIRED)
 ##
 ## OPTIONS
 ##
+
+if (POLICY CMP0077)
+    # Allow CMake 3.13+ to override options when using FetchContent / add_subdirectory.
+    cmake_policy(SET CMP0077 NEW)
+endif ()
+
 option(NADJIEB_MJPEG_STREAMER_Install "Install CMake targets during install step." ON)
 
 ##
@@ -63,8 +69,12 @@ target_link_libraries(
 ## install header files, generate and install cmake config files for find_package()
 ##
 include(CMakePackageConfigHelpers)
-write_basic_package_version_file(
-    ${NADJIEB_MJPEG_STREAMER_CMAKE_VERSION_CONFIG_FILE} COMPATIBILITY SameMajorVersion
+# use a custom package version config file instead of
+# write_basic_package_version_file to ensure that it's architecture-independent
+configure_file(
+    "cmake/nadjieb_mjpeg_streamerConfigVersion.cmake.in"
+    ${NADJIEB_MJPEG_STREAMER_CMAKE_VERSION_CONFIG_FILE}
+    @ONLY
 )
 configure_file(
     ${NADJIEB_MJPEG_STREAMER_CMAKE_CONFIG_TEMPLATE}
