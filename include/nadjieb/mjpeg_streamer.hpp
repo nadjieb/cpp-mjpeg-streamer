@@ -40,6 +40,7 @@ SOFTWARE.
 #include <queue>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <unordered_map>
 #include <utility>
@@ -173,7 +174,7 @@ class MJPEGStreamer
         for (auto i : clients)
         {
             std::unique_lock<std::mutex> lock(payloads_mutex_);
-            payloads_.emplace(Payload({buffer, path, i}));
+            payloads_.emplace(Payload{buffer, path, i});
             condition_.notify_one();
         }
     }
@@ -195,6 +196,69 @@ class MJPEGStreamer
         std::string buffer;
         std::string path;
         int sd;
+    };
+
+    struct HTTPMessage
+    {
+        HTTPMessage() = default;
+        HTTPMessage(const std::string &message)
+        {
+            parse(message);
+        }
+
+        std::string start_line;
+        std::unordered_map<std::string, std::string> headers;
+        std::string body;
+
+        std::string serialize() const
+        {
+            std::string delimiter = "\r\n";
+            std::stringstream stream;
+
+            stream << start_line << delimiter;
+
+            for (const auto &header : headers)
+            {
+                stream << header.first << ": " << header.second << delimiter;
+            }
+
+            stream << delimiter << body;
+
+            return stream.str();
+        }
+
+        void parse(std::string_view message)
+        {
+            std::string delimiter = "\r\n";
+            std::string body_delimiter = "\r\n\r\n";
+
+            start_line = message.substr(0, message.find(delimiter));
+
+            auto raw_headers = message.substr(message.find(delimiter) + delimiter.size(),
+                                              message.find(body_delimiter) - message.find(delimiter));
+
+            while (raw_headers.find(delimiter) != std::string::npos)
+            {
+                auto header = raw_headers.substr(0, raw_headers.find(delimiter));
+                auto key = header.substr(0, raw_headers.find(':'));
+                auto value = header.substr(raw_headers.find(':') + 1, raw_headers.find(delimiter));
+                while (value[0] == ' ')
+                {
+                    value = value.substr(1);
+                }
+                headers[std::string(key)] = std::string(value);
+                raw_headers = raw_headers.substr(raw_headers.find(delimiter) + delimiter.size());
+            }
+
+            body = message.substr(message.find(body_delimiter) + body_delimiter.size());
+        }
+
+        std::string target() const
+        {
+            std::string_view result(start_line.c_str() + start_line.find(' ') + 1);
+            result = result.substr(0, result.find(' '));
+            return std::string(result);
+        }
     };
 
     int master_socket_ = -1;
@@ -230,19 +294,21 @@ class MJPEGStreamer
                     this->payloads_.pop();
                 }
 
-                std::stringstream stream;
-                stream << "--boundarydonotcross\r\nContent-Type: image/jpeg\r\nContent-Length: "
-                       << payload.buffer.size() << "\r\n\r\n"
-                       << payload.buffer;
-                std::string msg = stream.str();
+                HTTPMessage res;
+                res.start_line = "--boundarydonotcross";
+                res.headers["Content-Type"] = "image/jpeg";
+                res.headers["Content-Length"] = std::to_string(payload.buffer.size());
+                res.body = payload.buffer;
+
+                auto res_str = res.serialize();
 
                 int n;
                 {
                     std::unique_lock<std::mutex> lock(this->send_mutices_.at(payload.sd % NUM_SEND_MUTICES));
-                    n = ::write(payload.sd, msg.c_str(), msg.size());
+                    n = ::write(payload.sd, res_str.c_str(), res_str.size());
                 }
 
-                if (n < static_cast<int>(msg.size()))
+                if (n < static_cast<int>(res_str.size()))
                 {
                     std::unique_lock<std::mutex> lock(this->clients_mutex_);
                     if (std::find(this->path2clients_[payload.path].begin(), this->path2clients_[payload.path].end(),
@@ -262,12 +328,14 @@ class MJPEGStreamer
     std::function<void()> listener()
     {
         return [this]() {
-            std::string header;
-            header += "HTTP/1.1 200 OK\r\n";
-            header += "Connection: close\r\n";
-            header += "Cache-Control: no-cache, no-store, must-revalidate, pre-check=0, post-check=0, max-age=0\r\n";
-            header += "Pragma: no-cache\r\n";
-            header += "Content-Type: multipart/x-mixed-replace; boundary=boundarydonotcross\r\n\r\n";
+            HTTPMessage res;
+            res.start_line = "HTTP/1.1 200 OK";
+            res.headers["Connection"] = "close";
+            res.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, pre-check=0, post-check=0, max-age=0";
+            res.headers["Pragma"] = "no-cache";
+            res.headers["Content-Type"] = "multipart/x-mixed-replace; boundary=boundarydonotcross";
+
+            auto res_str = res.serialize();
 
             int addrlen = sizeof(this->address_);
 
@@ -295,17 +363,17 @@ class MJPEGStreamer
                         exit(EXIT_FAILURE);
                     }
 
-                    std::string req(4096, 0);
-                    ::read(new_socket, &req[0], req.size());
-
-                    if (req.empty())
+                    std::string buff(4096, 0);
+                    ::read(new_socket, &buff[0], buff.size());
+                    if (buff.empty())
                     {
                         ::close(new_socket);
                         continue;
                     }
 
-                    auto path = req.substr(req.find("GET") + 4, req.find("HTTP/") - req.find("GET") - 5);
-                    if (path == this->shutdown_target_)
+                    HTTPMessage req(buff);
+
+                    if (req.target() == this->shutdown_target_)
                     {
                         ::close(new_socket);
                         std::unique_lock<std::mutex> lock(this->payloads_mutex_);
@@ -316,11 +384,11 @@ class MJPEGStreamer
 
                     {
                         std::unique_lock<std::mutex> lock(this->send_mutices_.at(new_socket % NUM_SEND_MUTICES));
-                        ::write(new_socket, header.c_str(), header.size());
+                        ::write(new_socket, res_str.c_str(), res_str.size());
                     }
 
                     std::unique_lock<std::mutex> lock(this->clients_mutex_);
-                    this->path2clients_[path].push_back(new_socket);
+                    this->path2clients_[req.target()].push_back(new_socket);
                 }
             }
 
