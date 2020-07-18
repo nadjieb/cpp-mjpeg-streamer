@@ -110,6 +110,11 @@ cmake .. && make
 then open the `index.html` in browser to see the streams.
 
 ## Compile and Run Tests
+The tests require that you have libcurl install on your system. You can read more about libcurl [here](https://curl.haxx.se/libcurl/) and can install it with
+```sh
+apt-get install libcurl4-openssl-dev
+```
+
 ```sh
 cd tets
 mkdir build && cd build
