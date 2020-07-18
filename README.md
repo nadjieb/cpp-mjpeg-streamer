@@ -108,3 +108,13 @@ cmake .. && make
 ./example
 ```
 then open the `index.html` in browser to see the streams.
+
+## Compile and Run Tests
+```sh
+cd tets
+mkdir build && cd build
+cmake .. && make
+cd ..
+./build/tests
+```
+there is a bug right now that if you don't run the tests binary from the tests folder then it can't find the image. i.e running `./tests` from the build folder will cause the tests to fail.
