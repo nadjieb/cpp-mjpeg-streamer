@@ -21,6 +21,7 @@ if (POLICY CMP0077)
     cmake_policy(SET CMP0077 NEW)
 endif ()
 
+option(NADJIEB_MJPEG_STREAMER_BuildTests "Build the unit tests when BUILD_TESTING is enabled." ON)
 option(NADJIEB_MJPEG_STREAMER_Install "Install CMake targets during install step." ON)
 
 ##
@@ -64,6 +65,23 @@ target_link_libraries(
     Threads::Threads
 )
 
+# Install a pkg-config file, so other tools can find this.
+CONFIGURE_FILE(
+  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/pkg-config.pc.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.pc"
+)
+
+##
+## TESTS
+## create and configure the unit test target
+##
+include(CTest) #adds option BUILD_TESTING (default ON)
+
+if(BUILD_TESTING AND NADJIEB_MJPEG_STREAMER_BuildTests)
+    enable_testing()
+    add_subdirectory(test)
+endif()
+
 ##
 ## INSTALL
 ## install header files, generate and install cmake config files for find_package()
@@ -105,5 +123,9 @@ if(NADJIEB_MJPEG_STREAMER_Install)
         EXPORT ${NADJIEB_MJPEG_STREAMER_TARGETS_EXPORT_NAME}
         NAMESPACE ${PROJECT_NAME}::
         DESTINATION ${NADJIEB_MJPEG_STREAMER_CONFIG_INSTALL_DIR}
+    )
+    install(
+        FILES "${CMAKE_BINARY_DIR}/${PROJECT_NAME}.pc"
+        DESTINATION lib/pkgconfig
     )
 endif()

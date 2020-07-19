@@ -1,0 +1,11 @@
+cmake_minimum_required(VERSION 3.1)
+
+project(DummyImport CXX)
+
+find_package(nadjieb_mjpeg_streamer REQUIRED)
+
+add_executable(with_namespace_target main.cpp)
+target_link_libraries(with_namespace_target nadjieb_mjpeg_streamer::nadjieb_mjpeg_streamer)
+
+add_executable(without_namespace_target main.cpp)
+target_link_libraries(without_namespace_target nadjieb_mjpeg_streamer)
