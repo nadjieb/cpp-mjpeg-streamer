@@ -1,4 +1,5 @@
 build/
+build_coverage/
 
 .vscode/*
 !.vscode/settings.json
