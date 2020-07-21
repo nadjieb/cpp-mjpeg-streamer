@@ -35,12 +35,12 @@ SOFTWARE.
 #include <algorithm>
 #include <array>
 #include <condition_variable>
+#include <functional>
 #include <iostream>
 #include <mutex>
 #include <queue>
 #include <sstream>
 #include <string>
-#include <string_view>
 #include <thread>
 #include <unordered_map>
 #include <utility>
@@ -227,7 +227,7 @@ class MJPEGStreamer
             return stream.str();
         }
 
-        void parse(std::string_view message)
+        void parse(const std::string &message)
         {
             std::string delimiter = "\r\n";
             std::string body_delimiter = "\r\n\r\n";
@@ -255,7 +255,7 @@ class MJPEGStreamer
 
         std::string target() const
         {
-            std::string_view result(start_line.c_str() + start_line.find(' ') + 1);
+            std::string result(start_line.c_str() + start_line.find(' ') + 1);
             result = result.substr(0, result.find(' '));
             return std::string(result);
         }
