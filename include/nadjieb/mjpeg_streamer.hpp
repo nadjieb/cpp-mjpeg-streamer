@@ -35,6 +35,7 @@ SOFTWARE.
 #include <algorithm>
 #include <array>
 #include <condition_variable>
+#include <functional>
 #include <iostream>
 #include <mutex>
 #include <queue>
@@ -226,7 +227,7 @@ class MJPEGStreamer
             return stream.str();
         }
 
-        void parse(const std::string& message)
+        void parse(const std::string &message)
         {
             std::string delimiter = "\r\n";
             std::string body_delimiter = "\r\n\r\n";
