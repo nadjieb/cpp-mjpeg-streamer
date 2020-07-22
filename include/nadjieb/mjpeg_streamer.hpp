@@ -36,10 +36,10 @@ SOFTWARE.
 #include <array>
 #include <condition_variable>
 #include <functional>
-#include <iostream>
 #include <mutex>
 #include <queue>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -84,33 +84,20 @@ class MJPEGStreamer
     {
         ::signal(SIGPIPE, SIG_IGN);
         master_socket_ = ::socket(AF_INET, SOCK_STREAM, 0);
-        if (master_socket_ < 0)
-        {
-            std::cerr << "ERROR: socket not created\n";
-            exit(EXIT_FAILURE);
-        }
+        panicIfUnexpected(master_socket_ < 0, "ERROR: socket not created\n");
 
         int yes = 1;
-        if (::setsockopt(master_socket_, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char *>(&yes), sizeof(yes)) < 0)
-        {
-            std::cerr << "ERROR: setsocketopt SO_REUSEADDR\n";
-            exit(EXIT_FAILURE);
-        }
+        auto res = ::setsockopt(master_socket_, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char *>(&yes), sizeof(yes));
+        panicIfUnexpected(res < 0, "ERROR: setsocketopt SO_REUSEADDR\n");
 
         address_.sin_family = AF_INET;
         address_.sin_addr.s_addr = INADDR_ANY;
         address_.sin_port = htons(port);
-        if (::bind(master_socket_, reinterpret_cast<struct sockaddr *>(&address_), sizeof(address_)) < 0)
-        {
-            std::cerr << "ERROR: bind\n";
-            exit(EXIT_FAILURE);
-        }
+        res = ::bind(master_socket_, reinterpret_cast<struct sockaddr *>(&address_), sizeof(address_));
+        panicIfUnexpected(res < 0, "ERROR: bind\n");
 
-        if (::listen(master_socket_, 5) < 0)
-        {
-            std::cerr << "ERROR: listen\n";
-            exit(EXIT_FAILURE);
-        }
+        res = ::listen(master_socket_, 5);
+        panicIfUnexpected(res < 0, "ERROR: listen\n");
 
         for (auto i = 0; i < num_workers; ++i)
         {
@@ -375,20 +362,10 @@ class MJPEGStreamer
                     auto new_socket =
                         ::accept(this->master_socket_, reinterpret_cast<struct sockaddr *>(&(this->address_)),
                                  reinterpret_cast<socklen_t *>(&addrlen));
-                    if (new_socket < 0)
-                    {
-                        std::cerr << "ERROR: accept\n";
-                        exit(EXIT_FAILURE);
-                    }
+                    panicIfUnexpected(new_socket < 0, "ERROR: accept\n");
 
                     std::string buff(4096, 0);
                     ::read(new_socket, &buff[0], buff.size());
-                    if (buff.empty())
-                    {
-                        ::write(new_socket, bad_request_res_str.c_str(), bad_request_res_str.size());
-                        ::close(new_socket);
-                        continue;
-                    }
 
                     HTTPMessage req(buff);
 
@@ -420,6 +397,14 @@ class MJPEGStreamer
 
             ::shutdown(master_socket, 2);
         };
+    }
+
+    static void panicIfUnexpected(bool condition, const std::string &message)
+    {
+        if (condition)
+        {
+            throw std::runtime_error(message);
+        }
     }
 };
 } // namespace nadjieb
