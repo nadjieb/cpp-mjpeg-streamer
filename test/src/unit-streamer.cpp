@@ -125,28 +125,28 @@ TEST_SUITE("streamer")
         }
     }
 
-    // TEST_CASE("Method Not Allowed")
-    // {
-    //     GIVEN("A streamer initialize")
-    //     {
-    //         nadjieb::MJPEGStreamer streamer;
-    //         streamer.start(1237);
+    TEST_CASE("Method Not Allowed")
+    {
+        GIVEN("A streamer initialize")
+        {
+            nadjieb::MJPEGStreamer streamer;
+            streamer.start(1237);
 
-    //         CHECK(streamer.isAlive() == true);
+            CHECK(streamer.isAlive() == true);
 
-    //         WHEN("Client request a POST")
-    //         {
-    //             httplib::Client cli("localhost", 1237);
+            WHEN("Client request a POST")
+            {
+                httplib::Client cli("localhost", 1237);
 
-    //             auto res = cli.Post("/foo");
+                auto res = cli.Post("/foo");
 
-    //             THEN("Connection closed")
-    //             {
-    //                 CHECK(res->status == 405);
-    //             }
-    //         }
-    //     }
-    // }
+                THEN("Connection closed")
+                {
+                    CHECK(res->status == 405);
+                }
+            }
+        }
+    }
 
     // TEST_CASE("Client disconnect when streamer publish buffer")
     // {
