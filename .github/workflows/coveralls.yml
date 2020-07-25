@@ -7,24 +7,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: install
+      run: sudo apt install lcov
     - name: cmake
       run: cmake -S . -B build -D CMAKE_BUILD_TYPE=Debug -DNADJIEB_MJPEG_STREAMER_BuildTests=On -DNADJIEB_MJPEG_STREAMER_Coverage=ON
     - name: build
       run: cmake --build build --parallel 10
-  
-  test:
-    needs: build
-    runs-on: ubuntu-latest
-
-    steps:
     - name: test
       run: cd build ; ctest -j 10 --output-on-failure
-  
-  coveralls:
-    needs: test
-    runs-on: ubuntu-latest
-    - name: install
-      run: sudo apt install lcov
     - name: lcov
       run: cd build ; make lcov
     - name: coveralls
