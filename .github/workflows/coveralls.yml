@@ -12,14 +12,15 @@ jobs:
     - name: install
       run: sudo apt install lcov
     - name: cmake
-      run: cmake -S . -B coverage -D CMAKE_BUILD_TYPE=Debug -DNADJIEB_MJPEG_STREAMER_BuildTests=On -DNADJIEB_MJPEG_STREAMER_Coverage=ON
+      run: cmake -S . -B build -D CMAKE_BUILD_TYPE=Debug -DNADJIEB_MJPEG_STREAMER_BuildTests=On -DNADJIEB_MJPEG_STREAMER_Coverage=ON
     - name: build
-      run: cmake --build coverage --parallel 10
+      run: cmake --build build --parallel 10
     - name: test
-      run: cd coverage ; ctest -j 10 --output-on-failure
+      run: cd build ; ctest -j 10 --output-on-failure
     - name: lcov
-      run: cd coverage ; make lcov
+      run: cd build ; make lcov
     - name: coveralls
       uses: coverallsapp/github-action@master
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
+        path-to-lcov: ./build/test/nadjieb_mjpeg_streamer.info.filtered.noexcept
