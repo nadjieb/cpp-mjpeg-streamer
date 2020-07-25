@@ -100,30 +100,30 @@ TEST_SUITE("streamer")
     //     }
     // }
 
-    // TEST_CASE("Graceful Shutdown")
-    // {
-    //     GIVEN("A streamer initialize with set shutdown target then start")
-    //     {
-    //         nadjieb::MJPEGStreamer streamer;
-    //         streamer.setShutdownTarget("/stop");
-    //         streamer.start(1236);
+    TEST_CASE("Graceful Shutdown")
+    {
+        GIVEN("A streamer initialize with set shutdown target then start")
+        {
+            nadjieb::MJPEGStreamer streamer;
+            streamer.setShutdownTarget("/stop");
+            streamer.start(1236);
 
-    //         CHECK(streamer.isAlive() == true);
+            CHECK(streamer.isAlive() == true);
 
-    //         WHEN("Client request to graceful shutdown")
-    //         {
-    //             httplib::Client cli("localhost", 1236);
+            WHEN("Client request to graceful shutdown")
+            {
+                httplib::Client cli("localhost", 1236);
 
-    //             auto res = cli.Get("/stop");
+                auto res = cli.Get("/stop");
 
-    //             THEN("The streamer is not alive")
-    //             {
-    //                 CHECK(res->status == 200);
-    //                 CHECK(streamer.isAlive() == false);
-    //             }
-    //         }
-    //     }
-    // }
+                THEN("The streamer is not alive")
+                {
+                    CHECK(res->status == 200);
+                    CHECK(streamer.isAlive() == false);
+                }
+            }
+        }
+    }
 
     // TEST_CASE("Method Not Allowed")
     // {
