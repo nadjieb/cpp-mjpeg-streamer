@@ -362,7 +362,7 @@ class MJPEGStreamer
                     auto new_socket =
                         ::accept(this->master_socket_, reinterpret_cast<struct sockaddr *>(&(this->address_)),
                                  reinterpret_cast<socklen_t *>(&addrlen));
-                    panicIfUnexpected(new_socket < 0, "ERROR: accept\n");
+                    this->panicIfUnexpected(new_socket < 0, "ERROR: accept\n");
 
                     std::string buff(4096, 0);
                     ::read(new_socket, &buff[0], buff.size());
