@@ -186,19 +186,19 @@ TEST_SUITE("streamer")
     //     }
     // }
 
-    // TEST_CASE("Panic If Unexpected")
-    // {
-    //     GIVEN("A streamer initialized")
-    //     {
-    //         nadjieb::MJPEGStreamer streamer;
+    TEST_CASE("Panic If Unexpected")
+    {
+        GIVEN("A streamer initialized")
+        {
+            nadjieb::MJPEGStreamer streamer;
 
-    //         WHEN("The streamer start")
-    //         {
-    //             THEN("It will throw exception")
-    //             {
-    //                 CHECK_THROWS_WITH(streamer.start(1238), "ERROR: bind\n");
-    //             }
-    //         }
-    //     }
-    // }
+            WHEN("The streamer start")
+            {
+                THEN("It will throw exception")
+                {
+                    CHECK_THROWS_WITH(streamer.start(1234), "ERROR: bind\n");
+                }
+            }
+        }
+    }
 }
