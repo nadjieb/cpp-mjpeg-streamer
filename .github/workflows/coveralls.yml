@@ -1,0 +1,23 @@
+name: Coveralls
+
+on: [push, pull_request]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: cmake
+      run: cmake -S . -B coverage -D CMAKE_BUILD_TYPE=Debug -DNADJIEB_MJPEG_STREAMER_BuildTests=On -DNADJIEB_MJPEG_STREAMER_Coverage=ON
+    - name: build
+      run: cmake --build coverage --parallel 10
+    - name: test
+      run: cd coverage ; ctest -j 10 --output-on-failure
+    - name: lcov
+      run: cd coverage ; make lcov
+    - name: coveralls
+      uses: coverallsapp/github-action@master
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
