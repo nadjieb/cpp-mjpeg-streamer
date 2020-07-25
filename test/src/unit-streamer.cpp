@@ -5,7 +5,6 @@
 
 #include <chrono>
 #include <future>
-#include <mutex>
 
 TEST_SUITE("streamer")
 {
@@ -154,6 +153,8 @@ TEST_SUITE("streamer")
                     streamer.publish("/buffer", "buffer");
                 }
             });
+
+            std::this_thread::sleep_for(std::chrono::seconds(2));
 
             httplib::Client cli("localhost", 1238);
 
