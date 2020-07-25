@@ -9,12 +9,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
-    - name: setup
-      run: |
-        wget http://ftp.de.debian.org/debian/pool/main/l/lcov/lcov_1.14.orig.tar.gz
-        tar xf lcov_1.14.orig.tar.gz
-        sudo make -C lcov-1.14/ install
-        sudo gem install coveralls-lcov
+    - name: install
+      run: sudo apt install lcov
     - name: cmake
       run: cmake -S . -B build -D CMAKE_BUILD_TYPE=Debug -DNADJIEB_MJPEG_STREAMER_BuildTests=On -DNADJIEB_MJPEG_STREAMER_Coverage=ON
     - name: build
