@@ -1,10 +1,9 @@
-name: Ubuntu
+name: ubuntu
 
 on: [push, pull_request]
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
@@ -13,5 +12,11 @@ jobs:
       run: cmake -S . -B build -D CMAKE_BUILD_TYPE=Debug -DNADJIEB_MJPEG_STREAMER_BuildTests=On
     - name: build
       run: cmake --build build --parallel 10
+
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
     - name: test
       run: cd build ; ctest -j 10 --output-on-failure
