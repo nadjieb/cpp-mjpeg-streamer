@@ -199,7 +199,7 @@ class MJPEGStreamer
 
         std::string serialize() const
         {
-            std::string delimiter = "\r\n";
+            const std::string delimiter = "\r\n";
             std::stringstream stream;
 
             stream << start_line << delimiter;
@@ -216,8 +216,8 @@ class MJPEGStreamer
 
         void parse(const std::string &message)
         {
-            std::string delimiter = "\r\n";
-            std::string body_delimiter = "\r\n\r\n";
+            const std::string delimiter = "\r\n";
+            const std::string body_delimiter = "\r\n\r\n";
 
             start_line = message.substr(0, message.find(delimiter));
 
