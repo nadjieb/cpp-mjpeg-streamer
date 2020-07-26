@@ -1,0 +1,14 @@
+name: amalgamation
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: check-amalgamation
+      run: make check-amalgamation
+    - name: check-single-include
+      run: make check-single-includes
