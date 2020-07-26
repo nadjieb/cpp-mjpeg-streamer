@@ -11,7 +11,7 @@ jobs:
     - name: install
       run: sudo apt install lcov
     - name: cmake
-      run: cmake -S . -B build -D CMAKE_BUILD_TYPE=Debug -DNADJIEB_MJPEG_STREAMER_BuildTests=On -DNADJIEB_MJPEG_STREAMER_Coverage=ON
+      run: cmake -S . -B build -D CMAKE_BUILD_TYPE=Debug -DNADJIEB_MJPEG_STREAMER_BuildTests=On -DNADJIEB_MJPEG_STREAMER_MultipleHeaders=ON -DNADJIEB_MJPEG_STREAMER_Coverage=ON
     - name: build
       run: cmake --build build --parallel 10
     - name: test

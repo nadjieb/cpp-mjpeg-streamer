@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 
-#include <nadjieb/mjpeg_streamer.hpp>
+#include <nadjieb/detail/http_message.hpp>
 
 #include <string>
 

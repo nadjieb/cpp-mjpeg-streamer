@@ -1,0 +1,8 @@
+{
+	"project": "C++ MJPEG over HTTP Library",
+	"target": "single_include/nadjieb/mjpeg_streamer.hpp",
+	"sources": [
+		"include/nadjieb/mjpeg_streamer.hpp"
+	],
+	"include_paths": ["include"]
+}
