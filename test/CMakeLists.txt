@@ -46,6 +46,7 @@ target_include_directories(doctest_main PRIVATE include)
 
 set(files
     src/unit-streamer.cpp
+    src/unit-http-message.cpp
 )
 
 foreach(file ${files})

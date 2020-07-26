@@ -5,6 +5,7 @@
 
 #include <chrono>
 #include <future>
+#include <string>
 
 TEST_SUITE("streamer")
 {
