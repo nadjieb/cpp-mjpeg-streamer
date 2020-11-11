@@ -60,7 +60,12 @@ foreach(file ${files})
         $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wno-deprecated;-Wno-float-equal>
         $<$<CXX_COMPILER_ID:GNU>:-Wno-deprecated-declarations>
     )
-    target_include_directories(${testcase} PRIVATE ${CMAKE_BINARY_DIR}/include include)
+    target_include_directories(${testcase} 
+        PRIVATE 
+            include
+            ${PROJECT_SOURCE_DIR}/include
+            ${CMAKE_BINARY_DIR}/include
+            )
     target_link_libraries(${testcase} PRIVATE ${NADJIEB_MJPEG_STREAMER_TARGET_NAME})
 
     if (NADJIEB_MJPEG_STREAMER_Coverage)
