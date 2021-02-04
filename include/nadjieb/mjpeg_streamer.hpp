@@ -265,14 +265,14 @@ class MJPEGStreamer
             fd_set fd;
             FD_ZERO(&fd);
 
-            struct timeval to;
-            to.tv_sec = 1;
-            to.tv_usec = 0;
-
             auto master_socket = this->master_socket_;
 
             while (this->isAlive())
             {
+                struct timeval to;
+                to.tv_sec = 1;
+                to.tv_usec = 0;
+
                 FD_SET(this->master_socket_, &fd);
 
                 if (select(this->master_socket_ + 1, &fd, nullptr, nullptr, &to) > 0)
