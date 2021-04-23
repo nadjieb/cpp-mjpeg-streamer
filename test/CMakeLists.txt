@@ -14,16 +14,16 @@ if(NADJIEB_MJPEG_STREAMER_Coverage)
     # add target to collect coverage information and generate HTML file
     # (filter script from https://stackoverflow.com/a/43726240/266378)
     add_custom_target(lcov_html
-        COMMAND lcov --directory . --capture --output-file nadjieb_mjpeg_streamer.info --rc lcov_branch_coverage=1
-        COMMAND lcov -e nadjieb_mjpeg_streamer.info ${SOURCE_FILES} --output-file nadjieb_mjpeg_streamer.info.filtered --gcov-tool ${GCOV_BIN} --rc lcov_branch_coverage=1
+        COMMAND lcov --directory . --capture --output-file nadjieb_mjpeg_streamer.info --rc lcov_branch_coverage=0
+        COMMAND lcov -e nadjieb_mjpeg_streamer.info ${SOURCE_FILES} --output-file nadjieb_mjpeg_streamer.info.filtered --gcov-tool ${GCOV_BIN} --rc lcov_branch_coverage=0
         COMMAND ${CMAKE_SOURCE_DIR}/thirdparty/imapdl/filterbr.py nadjieb_mjpeg_streamer.info.filtered > nadjieb_mjpeg_streamer.info.filtered.noexcept
-        COMMAND genhtml --title "C++ MJPEG over HTTP Library" --legend --demangle-cpp --output-directory html --show-details --branch-coverage nadjieb_mjpeg_streamer.info.filtered.noexcept
+        COMMAND genhtml --title "C++ MJPEG over HTTP Library" --legend --demangle-cpp --output-directory html --show-details --no-branch-coverage nadjieb_mjpeg_streamer.info.filtered.noexcept
         COMMENT "Generating HTML report test/html/index.html"
     )
 
     add_custom_target(lcov
-        COMMAND lcov --directory . --capture --output-file nadjieb_mjpeg_streamer.info --rc lcov_branch_coverage=1
-        COMMAND lcov -e nadjieb_mjpeg_streamer.info ${SOURCE_FILES} --output-file nadjieb_mjpeg_streamer.info.filtered --gcov-tool ${GCOV_BIN} --rc lcov_branch_coverage=1
+        COMMAND lcov --directory . --capture --output-file nadjieb_mjpeg_streamer.info --rc lcov_branch_coverage=0
+        COMMAND lcov -e nadjieb_mjpeg_streamer.info ${SOURCE_FILES} --output-file nadjieb_mjpeg_streamer.info.filtered --gcov-tool ${GCOV_BIN} --rc lcov_branch_coverage=0
         COMMAND ${CMAKE_SOURCE_DIR}/thirdparty/imapdl/filterbr.py nadjieb_mjpeg_streamer.info.filtered > nadjieb_mjpeg_streamer.info.filtered.noexcept
     )
 endif()
