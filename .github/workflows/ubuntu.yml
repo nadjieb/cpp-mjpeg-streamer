@@ -1,13 +1,17 @@
 name: ubuntu
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - master
+  pull_request:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
     - name: cmake
       run: cmake -S . -B build -D CMAKE_BUILD_TYPE=Debug -DNADJIEB_MJPEG_STREAMER_BuildTests=On -DNADJIEB_MJPEG_STREAMER_MultipleHeaders=ON
     - name: build

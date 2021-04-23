@@ -1,13 +1,17 @@
 name: Coveralls
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - master
+  pull_request:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
     - name: install
       run: sudo apt install lcov
     - name: cmake
@@ -22,4 +26,4 @@ jobs:
       uses: coverallsapp/github-action@master
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
-        path-to-lcov: ./build/test/nadjieb_mjpeg_streamer.info.filtered.noexcept
+        path-to-lcov: ./build/test/nadjieb_mjpeg_streamer.info.filtered

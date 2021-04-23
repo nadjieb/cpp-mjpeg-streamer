@@ -1,11 +1,13 @@
 #include <doctest/doctest.h>
 #include <yhirose/httplib.h>
 
-#include <nadjieb/mjpeg_streamer.hpp>
-
 #include <chrono>
 #include <future>
 #include <string>
+
+#define private public
+
+#include <nadjieb/mjpeg_streamer.hpp>
 
 TEST_SUITE("streamer")
 {
@@ -187,6 +189,38 @@ TEST_SUITE("streamer")
                 THEN("It will throw exception")
                 {
                     CHECK_THROWS_WITH(streamer.start(1234), "ERROR: bind\n");
+                }
+            }
+        }
+    }
+
+    TEST_CASE("Read Buffer")
+    {
+        GIVEN("An invalid buffer initialized")
+        {
+            void *buf = nullptr;
+
+            WHEN("Read buffer")
+            {
+                THEN("It will throw exception")
+                {
+                    CHECK_THROWS_WITH(nadjieb::MJPEGStreamer::readBuff(1, buf, 1), "ERROR: read\n");
+                }
+            }
+        }
+    }
+
+    TEST_CASE("Write Buffer")
+    {
+        GIVEN("An invalid buffer initialized")
+        {
+            void *buf = nullptr;
+
+            WHEN("Write buffer")
+            {
+                THEN("It will throw exception")
+                {
+                    CHECK_THROWS_WITH(nadjieb::MJPEGStreamer::writeBuff(1, buf, 1), "ERROR: write\n");
                 }
             }
         }

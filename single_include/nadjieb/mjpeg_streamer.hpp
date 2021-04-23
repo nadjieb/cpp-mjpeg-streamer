@@ -377,13 +377,13 @@ class MJPEGStreamer
                     this->panicIfUnexpected(new_socket < 0, "ERROR: accept\n");
 
                     std::string buff(4096, 0);
-                    ::read(new_socket, &buff[0], buff.size());
+                    this->readBuff(new_socket, &buff[0], buff.size());
 
                     HTTPMessage req(buff);
 
                     if (req.target() == this->shutdown_target_)
                     {
-                        ::write(new_socket, shutdown_res_str.c_str(), shutdown_res_str.size());
+                        this->writeBuff(new_socket, shutdown_res_str.c_str(), shutdown_res_str.size());
                         ::close(new_socket);
 
                         std::unique_lock<std::mutex> lock(this->payloads_mutex_);
@@ -395,12 +395,13 @@ class MJPEGStreamer
 
                     if (req.method() != "GET")
                     {
-                        ::write(new_socket, method_not_allowed_res_str.c_str(), method_not_allowed_res_str.size());
+                        this->writeBuff(new_socket, method_not_allowed_res_str.c_str(),
+                                        method_not_allowed_res_str.size());
                         ::close(new_socket);
                         continue;
                     }
 
-                    ::write(new_socket, init_res_str.c_str(), init_res_str.size());
+                    this->writeBuff(new_socket, init_res_str.c_str(), init_res_str.size());
 
                     std::unique_lock<std::mutex> lock(this->clients_mutex_);
                     this->path2clients_[req.target()].push_back(new_socket);
@@ -417,6 +418,16 @@ class MJPEGStreamer
         {
             throw std::runtime_error(message);
         }
+    }
+
+    static void readBuff(int fd, void *buf, size_t nbyte)
+    {
+        panicIfUnexpected(::read(fd, buf, nbyte) < 0, "ERROR: read\n");
+    }
+
+    static void writeBuff(int fd, const void *buf, size_t nbyte)
+    {
+        panicIfUnexpected(::write(fd, buf, nbyte) < 0, "ERROR: write\n");
     }
 };
 } // namespace nadjieb
