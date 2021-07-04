@@ -4,7 +4,7 @@ https://github.com/nadjieb/cpp-mjpeg-streamer
 
 MIT License
 
-Copyright (c) 2020 Muhammad Kamal Nadjieb
+Copyright (c) 2020-2021 Muhammad Kamal Nadjieb
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -27,10 +27,10 @@ SOFTWARE.
 
 #pragma once
 
-#include <csignal>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <csignal>
 
 #include <algorithm>
 #include <array>
@@ -71,29 +71,22 @@ SOFTWARE.
 #include <string>
 #include <unordered_map>
 
-namespace nadjieb
-{
-struct HTTPMessage
-{
+namespace nadjieb {
+struct HTTPMessage {
     HTTPMessage() = default;
-    HTTPMessage(const std::string &message)
-    {
-        parse(message);
-    }
+    HTTPMessage(const std::string& message) { parse(message); }
 
     std::string start_line;
     std::unordered_map<std::string, std::string> headers;
     std::string body;
 
-    std::string serialize() const
-    {
+    std::string serialize() const {
         const std::string delimiter = "\r\n";
         std::stringstream stream;
 
         stream << start_line << delimiter;
 
-        for (const auto &header : headers)
-        {
+        for (const auto& header : headers) {
             stream << header.first << ": " << header.second << delimiter;
         }
 
@@ -102,23 +95,21 @@ struct HTTPMessage
         return stream.str();
     }
 
-    void parse(const std::string &message)
-    {
+    void parse(const std::string& message) {
         const std::string delimiter = "\r\n";
         const std::string body_delimiter = "\r\n\r\n";
 
         start_line = message.substr(0, message.find(delimiter));
 
-        auto raw_headers = message.substr(message.find(delimiter) + delimiter.size(),
-                                          message.find(body_delimiter) - message.find(delimiter));
+        auto raw_headers = message.substr(
+            message.find(delimiter) + delimiter.size(),
+            message.find(body_delimiter) - message.find(delimiter));
 
-        while (raw_headers.find(delimiter) != std::string::npos)
-        {
+        while (raw_headers.find(delimiter) != std::string::npos) {
             auto header = raw_headers.substr(0, raw_headers.find(delimiter));
             auto key = header.substr(0, raw_headers.find(':'));
             auto value = header.substr(raw_headers.find(':') + 1, raw_headers.find(delimiter));
-            while (value[0] == ' ')
-            {
+            while (value[0] == ' ') {
                 value = value.substr(1);
             }
             headers[std::string(key)] = std::string(value);
@@ -128,138 +119,113 @@ struct HTTPMessage
         body = message.substr(message.find(body_delimiter) + body_delimiter.size());
     }
 
-    std::string target() const
-    {
+    std::string target() const {
         std::string result(start_line.c_str() + start_line.find(' ') + 1);
         result = result.substr(0, result.find(' '));
         return std::string(result);
     }
 
-    std::string method() const
-    {
-        return start_line.substr(0, start_line.find(' '));
-    }
+    std::string method() const { return start_line.substr(0, start_line.find(' ')); }
 };
-} // namespace nadjieb
+}  // namespace nadjieb
 
 
-namespace nadjieb
-{
+namespace nadjieb {
 constexpr int NUM_SEND_MUTICES = 100;
-class MJPEGStreamer
-{
-  public:
+class MJPEGStreamer {
+   public:
     MJPEGStreamer() = default;
-    virtual ~MJPEGStreamer()
-    {
-        stop();
-    }
+    virtual ~MJPEGStreamer() { stop(); }
 
-    MJPEGStreamer(MJPEGStreamer &&) = delete;
-    MJPEGStreamer(const MJPEGStreamer &) = delete;
-    MJPEGStreamer &operator=(MJPEGStreamer &&) = delete;
-    MJPEGStreamer &operator=(const MJPEGStreamer &) = delete;
+    MJPEGStreamer(MJPEGStreamer&&) = delete;
+    MJPEGStreamer(const MJPEGStreamer&) = delete;
+    MJPEGStreamer& operator=(MJPEGStreamer&&) = delete;
+    MJPEGStreamer& operator=(const MJPEGStreamer&) = delete;
 
-    void start(int port, int num_workers = 1)
-    {
+    void start(int port, int num_workers = 1) {
         ::signal(SIGPIPE, SIG_IGN);
         master_socket_ = ::socket(AF_INET, SOCK_STREAM, 0);
         panicIfUnexpected(master_socket_ < 0, "ERROR: socket not created\n");
 
         int yes = 1;
-        auto res = ::setsockopt(master_socket_, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char *>(&yes), sizeof(yes));
+        auto res = ::setsockopt(
+            master_socket_, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char*>(&yes), sizeof(yes));
         panicIfUnexpected(res < 0, "ERROR: setsocketopt SO_REUSEADDR\n");
 
         address_.sin_family = AF_INET;
         address_.sin_addr.s_addr = INADDR_ANY;
         address_.sin_port = htons(port);
-        res = ::bind(master_socket_, reinterpret_cast<struct sockaddr *>(&address_), sizeof(address_));
+        res = ::bind(
+            master_socket_, reinterpret_cast<struct sockaddr*>(&address_), sizeof(address_));
         panicIfUnexpected(res < 0, "ERROR: bind\n");
 
         res = ::listen(master_socket_, 5);
         panicIfUnexpected(res < 0, "ERROR: listen\n");
 
-        for (auto i = 0; i < num_workers; ++i)
-        {
+        for (auto i = 0; i < num_workers; ++i) {
             workers_.emplace_back(worker());
         }
 
         thread_listener_ = std::thread(listener());
     }
 
-    void stop()
-    {
-        if (isAlive())
-        {
+    void stop() {
+        if (isAlive()) {
             std::unique_lock<std::mutex> lock(payloads_mutex_);
             master_socket_ = -1;
             condition_.notify_all();
         }
 
-        if (!workers_.empty())
-        {
-            for (auto &w : workers_)
-            {
-                if (w.joinable())
-                {
+        if (!workers_.empty()) {
+            for (auto& w : workers_) {
+                if (w.joinable()) {
                     w.join();
                 }
             }
             workers_.clear();
         }
 
-        if (!path2clients_.empty())
-        {
-            for (auto &p2c : path2clients_)
-            {
-                for (auto sd : p2c.second)
-                {
+        if (!path2clients_.empty()) {
+            for (auto& p2c : path2clients_) {
+                for (auto sd : p2c.second) {
                     ::close(sd);
                 }
             }
             path2clients_.clear();
         }
 
-        if (thread_listener_.joinable())
-        {
+        if (thread_listener_.joinable()) {
             thread_listener_.join();
         }
     }
 
-    void publish(const std::string &path, const std::string &buffer)
-    {
+    void publish(const std::string& path, const std::string& buffer) {
         std::vector<int> clients;
         {
             std::unique_lock<std::mutex> lock(clients_mutex_);
-            if ((path2clients_.find(path) == path2clients_.end()) || (path2clients_[path].empty()))
-            {
+            if ((path2clients_.find(path) == path2clients_.end())
+                || (path2clients_[path].empty())) {
                 return;
             }
             clients = path2clients_[path];
         }
 
-        for (auto i : clients)
-        {
+        for (auto i : clients) {
             std::unique_lock<std::mutex> lock(payloads_mutex_);
             payloads_.emplace(Payload{buffer, path, i});
             condition_.notify_one();
         }
     }
 
-    void setShutdownTarget(const std::string &target)
-    {
-        shutdown_target_ = target;
-    }
+    void setShutdownTarget(const std::string& target) { shutdown_target_ = target; }
 
-    bool isAlive()
-    {
+    bool isAlive() {
         std::unique_lock<std::mutex> lock(payloads_mutex_);
         return master_socket_ > 0;
     }
 
-  private:
-    struct Payload
-    {
+   private:
+    struct Payload {
         std::string buffer;
         std::string path;
         int sd;
@@ -279,19 +245,17 @@ class MJPEGStreamer
     std::queue<Payload> payloads_;
     std::unordered_map<std::string, std::vector<int>> path2clients_;
 
-    std::function<void()> worker()
-    {
+    std::function<void()> worker() {
         return [this]() {
-            while (this->isAlive())
-            {
+            while (this->isAlive()) {
                 Payload payload;
 
                 {
                     std::unique_lock<std::mutex> lock(this->payloads_mutex_);
-                    this->condition_.wait(lock,
-                                          [this]() { return this->master_socket_ < 0 || !this->payloads_.empty(); });
-                    if ((this->master_socket_ < 0) && (this->payloads_.empty()))
-                    {
+                    this->condition_.wait(lock, [this]() {
+                        return this->master_socket_ < 0 || !this->payloads_.empty();
+                    });
+                    if ((this->master_socket_ < 0) && (this->payloads_.empty())) {
                         return;
                     }
                     payload = std::move(this->payloads_.front());
@@ -308,20 +272,16 @@ class MJPEGStreamer
 
                 int n;
                 {
-                    std::unique_lock<std::mutex> lock(this->send_mutices_.at(payload.sd % NUM_SEND_MUTICES));
+                    std::unique_lock<std::mutex> lock(
+                        this->send_mutices_.at(payload.sd % NUM_SEND_MUTICES));
                     n = ::write(payload.sd, res_str.c_str(), res_str.size());
                 }
 
-                if (n < static_cast<int>(res_str.size()))
-                {
+                if (n < static_cast<int>(res_str.size())) {
                     std::unique_lock<std::mutex> lock(this->clients_mutex_);
-                    if (std::find(this->path2clients_[payload.path].begin(), this->path2clients_[payload.path].end(),
-                                  payload.sd) != this->path2clients_[payload.path].end())
-                    {
-                        this->path2clients_[payload.path].erase(std::remove(this->path2clients_[payload.path].begin(),
-                                                                            this->path2clients_[payload.path].end(),
-                                                                            payload.sd),
-                                                                this->path2clients_[payload.path].end());
+                    auto& p2c = this->path2clients_[payload.path];
+                    if (std::find(p2c.begin(), p2c.end(), payload.sd) != p2c.end()) {
+                        p2c.erase(std::remove(p2c.begin(), p2c.end(), payload.sd), p2c.end());
                         ::close(payload.sd);
                     }
                 }
@@ -329,8 +289,7 @@ class MJPEGStreamer
         };
     }
 
-    std::function<void()> listener()
-    {
+    std::function<void()> listener() {
         return [this]() {
             HTTPMessage bad_request_res;
             bad_request_res.start_line = "HTTP/1.1 400 Bad Request";
@@ -344,10 +303,11 @@ class MJPEGStreamer
             HTTPMessage init_res;
             init_res.start_line = "HTTP/1.1 200 OK";
             init_res.headers["Connection"] = "close";
-            init_res.headers["Cache-Control"] =
-                "no-cache, no-store, must-revalidate, pre-check=0, post-check=0, max-age=0";
+            init_res.headers["Cache-Control"]
+                = "no-cache, no-store, must-revalidate, pre-check=0, post-check=0, max-age=0";
             init_res.headers["Pragma"] = "no-cache";
-            init_res.headers["Content-Type"] = "multipart/x-mixed-replace; boundary=boundarydonotcross";
+            init_res.headers["Content-Type"]
+                = "multipart/x-mixed-replace; boundary=boundarydonotcross";
 
             auto bad_request_res_str = bad_request_res.serialize();
             auto shutdown_res_str = shutdown_res.serialize();
@@ -361,19 +321,17 @@ class MJPEGStreamer
 
             auto master_socket = this->master_socket_;
 
-            while (this->isAlive())
-            {
+            while (this->isAlive()) {
                 struct timeval to;
                 to.tv_sec = 1;
                 to.tv_usec = 0;
 
                 FD_SET(this->master_socket_, &fd);
 
-                if (select(this->master_socket_ + 1, &fd, nullptr, nullptr, &to) > 0)
-                {
-                    auto new_socket =
-                        ::accept(this->master_socket_, reinterpret_cast<struct sockaddr *>(&(this->address_)),
-                                 reinterpret_cast<socklen_t *>(&addrlen));
+                if (select(this->master_socket_ + 1, &fd, nullptr, nullptr, &to) > 0) {
+                    auto new_socket = ::accept(
+                        this->master_socket_, reinterpret_cast<struct sockaddr*>(&(this->address_)),
+                        reinterpret_cast<socklen_t*>(&addrlen));
                     this->panicIfUnexpected(new_socket < 0, "ERROR: accept\n");
 
                     std::string buff(4096, 0);
@@ -381,9 +339,9 @@ class MJPEGStreamer
 
                     HTTPMessage req(buff);
 
-                    if (req.target() == this->shutdown_target_)
-                    {
-                        this->writeBuff(new_socket, shutdown_res_str.c_str(), shutdown_res_str.size());
+                    if (req.target() == this->shutdown_target_) {
+                        this->writeBuff(
+                            new_socket, shutdown_res_str.c_str(), shutdown_res_str.size());
                         ::close(new_socket);
 
                         std::unique_lock<std::mutex> lock(this->payloads_mutex_);
@@ -393,10 +351,10 @@ class MJPEGStreamer
                         continue;
                     }
 
-                    if (req.method() != "GET")
-                    {
-                        this->writeBuff(new_socket, method_not_allowed_res_str.c_str(),
-                                        method_not_allowed_res_str.size());
+                    if (req.method() != "GET") {
+                        this->writeBuff(
+                            new_socket, method_not_allowed_res_str.c_str(),
+                            method_not_allowed_res_str.size());
                         ::close(new_socket);
                         continue;
                     }
@@ -412,22 +370,18 @@ class MJPEGStreamer
         };
     }
 
-    static void panicIfUnexpected(bool condition, const std::string &message)
-    {
-        if (condition)
-        {
+    static void panicIfUnexpected(bool condition, const std::string& message) {
+        if (condition) {
             throw std::runtime_error(message);
         }
     }
 
-    static void readBuff(int fd, void *buf, size_t nbyte)
-    {
+    static void readBuff(int fd, void* buf, size_t nbyte) {
         panicIfUnexpected(::read(fd, buf, nbyte) < 0, "ERROR: read\n");
     }
 
-    static void writeBuff(int fd, const void *buf, size_t nbyte)
-    {
+    static void writeBuff(int fd, const void* buf, size_t nbyte) {
         panicIfUnexpected(::write(fd, buf, nbyte) < 0, "ERROR: write\n");
     }
 };
-} // namespace nadjieb
+}  // namespace nadjieb
