@@ -198,15 +198,9 @@ class MJPEGStreamer {
 
                 if (n < static_cast<int>(res_str.size())) {
                     std::unique_lock<std::mutex> lock(this->clients_mutex_);
-                    if (std::find(
-                            this->path2clients_[payload.path].begin(),
-                            this->path2clients_[payload.path].end(), payload.sd)
-                        != this->path2clients_[payload.path].end()) {
-                        this->path2clients_[payload.path].erase(
-                            std::remove(
-                                this->path2clients_[payload.path].begin(),
-                                this->path2clients_[payload.path].end(), payload.sd),
-                            this->path2clients_[payload.path].end());
+                    auto& p2c = this->path2clients_[payload.path];
+                    if (std::find(p2c.begin(), p2c.end(), payload.sd) != p2c.end()) {
+                        p2c.erase(std::remove(p2c.begin(), p2c.end(), payload.sd), p2c.end());
                         ::close(payload.sd);
                     }
                 }
