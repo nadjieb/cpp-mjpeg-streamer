@@ -4,6 +4,7 @@
 
 # find GNU sed to use `-i` parameter
 SED:=$(shell command -v gsed || which sed)
+PROJECT_DIR=$(shell pwd)
 
 
 ##########################################################################
@@ -23,9 +24,28 @@ AMALGAMATED_FILE=single_include/nadjieb/mjpeg_streamer.hpp
 
 # main target
 all:
+	@echo "install-here - install this library to $(PROJECT_DIR)/installation"
+	@echo "build-example - build example using library from $(PROJECT_DIR)/installation"
 	@echo "amalgamate - amalgamate file single_include/nadjieb/mjpeg_streamer.hpp from the include/nadjieb sources"
 	@echo "check-amalgamation - check whether sources have been amalgamated"
 	@echo "coverage - create coverage information with lcov"
+
+##########################################################################
+# installation for development and build example
+##########################################################################
+install-here:
+	rm -rf build
+	mkdir build
+	cd build ; cmake .. -GNinja -DCMAKE_INSTALL_PREFIX=$(PROJECT_DIR)/installation -DNADJIEB_MJPEG_STREAMER_BuildTests=OFF
+	rm -rf installation
+	mkdir installation
+	cd build ; ninja install
+
+build-example:
+	rm -rf examples/build
+	mkdir examples/build
+	cd examples/build ; cmake .. -GNinja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=$(PROJECT_DIR)/installation/lib/cmake
+	cd examples/build ; ninja
 
 
 ##########################################################################
@@ -33,11 +53,11 @@ all:
 ##########################################################################
 
 coverage:
-	rm -fr build_coverage
+	rm -rf build_coverage
 	mkdir build_coverage
 	cd build_coverage ; cmake .. -GNinja -DCMAKE_BUILD_TYPE=Debug -DNADJIEB_MJPEG_STREAMER_Coverage=ON -DNADJIEB_MJPEG_STREAMER_MultipleHeaders=ON
 	cd build_coverage ; ninja
-	cd build_coverage ; ctest -j10
+	cd build_coverage ; ninja test
 	cd build_coverage ; ninja lcov_html
 	open build_coverage/test/html/index.html
 
