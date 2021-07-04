@@ -2,16 +2,59 @@ cpp-httplib
 ===========
 
 [![](https://github.com/yhirose/cpp-httplib/workflows/test/badge.svg)](https://github.com/yhirose/cpp-httplib/actions)
-[![Bulid Status](https://ci.appveyor.com/api/projects/status/github/yhirose/cpp-httplib?branch=master&svg=true)](https://ci.appveyor.com/project/yhirose/cpp-httplib)
 
 A C++11 single-file header-only cross platform HTTP/HTTPS library.
 
-It's extremely easy to setup. Just include **httplib.h** file in your code!
+It's extremely easy to setup. Just include the **httplib.h** file in your code!
 
-For Windows users: Please read [this note](https://github.com/yhirose/cpp-httplib#windows).
+NOTE: This is a multi-threaded 'blocking' HTTP library. If you are looking for a 'non-blocking' library, this is not the one that you want.
 
-Server Example
---------------
+Simple examples
+---------------
+
+#### Server
+
+```c++
+#define CPPHTTPLIB_OPENSSL_SUPPORT
+#include "path/to/httplib.h"
+
+// HTTP
+httplib::Server svr;
+
+// HTTPS
+httplib::SSLServer svr;
+
+svr.Get("/hi", [](const httplib::Request &, httplib::Response &res) {
+  res.set_content("Hello World!", "text/plain");
+});
+
+svr.listen("0.0.0.0", 8080);
+```
+
+#### Client
+
+```c++
+#define CPPHTTPLIB_OPENSSL_SUPPORT
+#include "path/to/httplib.h"
+
+// HTTP
+httplib::Client cli("http://cpp-httplib-server.yhirose.repl.co");
+
+// HTTPS
+httplib::Client cli("https://cpp-httplib-server.yhirose.repl.co");
+
+auto res = cli.Get("/hi");
+res->status;
+res->body;
+```
+
+### Try out the examples on Repl.it!
+
+1. Run server at https://repl.it/@yhirose/cpp-httplib-server
+2. Run client at https://repl.it/@yhirose/cpp-httplib-client
+
+Server
+------
 
 ```c++
 #include <httplib.h>
@@ -90,24 +133,30 @@ svr.set_file_extension_and_mimetype_mapping("hh", "text/x-h");
 
 The followings are built-in mappings:
 
-| Extension |     MIME Type          |
-| :-------- | :--------------------- |
-| txt       | text/plain             |
-| html, htm | text/html              |
-| css       | text/css               |
-| jpeg, jpg | image/jpg              |
-| png       | image/png              |
-| gif       | image/gif              |
-| svg       | image/svg+xml          |
-| ico       | image/x-icon           |
-| json      | application/json       |
-| pdf       | application/pdf        |
-| js        | application/javascript |
-| wasm      | application/wasm       |
-| xml       | application/xml        |
-| xhtml     | application/xhtml+xml  |
+| Extension  |          MIME Type          | Extension  |          MIME Type          |
+| :--------- | :-------------------------- | :--------- | :-------------------------- |
+| css        | text/css                    | mpga       | audio/mpeg                  |
+| csv        | text/csv                    | weba       | audio/webm                  |
+| txt        | text/plain                  | wav        | audio/wave                  |
+| vtt        | text/vtt                    | otf        | font/otf                    |
+| html, htm  | text/html                   | ttf        | font/ttf                    |
+| apng       | image/apng                  | woff       | font/woff                   |
+| avif       | image/avif                  | woff2      | font/woff2                  |
+| bmp        | image/bmp                   | 7z         | application/x-7z-compressed |
+| gif        | image/gif                   | atom       | application/atom+xml        |
+| png        | image/png                   | pdf        | application/pdf             |
+| svg        | image/svg+xml               | mjs, js    | application/javascript      |
+| webp       | image/webp                  | json       | application/json            |
+| ico        | image/x-icon                | rss        | application/rss+xml         |
+| tif        | image/tiff                  | tar        | application/x-tar           |
+| tiff       | image/tiff                  | xhtml, xht | application/xhtml+xml       |
+| jpeg, jpg  | image/jpeg                  | xslt       | application/xslt+xml        |
+| mp4        | video/mp4                   | xml        | application/xml             |
+| mpeg       | video/mpeg                  | gz         | application/gzip            |
+| webm       | video/webm                  | zip        | application/zip             |
+| mp3        | audio/mp3                   | wasm       | application/wasm            |
 
-NOTE: These the static file server methods are not thread safe.
+NOTE: These static file server methods are not thread-safe.
 
 ### Logging
 
@@ -128,6 +177,39 @@ svr.set_error_handler([](const auto& req, auto& res) {
 });
 ```
 
+### Exception handler
+The exception handler gets called if a user routing handler throws an error.
+
+```cpp
+svr.set_exception_handler([](const auto& req, auto& res, std::exception &e) {
+  res.status = 500;
+  auto fmt = "<h1>Error 500</h1><p>%s</p>";
+  char buf[BUFSIZ];
+  snprintf(buf, sizeof(buf), fmt, e.what());
+  res.set_content(buf, "text/html");
+});
+```
+
+### Pre routing handler
+
+```cpp
+svr.set_pre_routing_handler([](const auto& req, auto& res) -> bool {
+  if (req.path == "/hello") {
+    res.set_content("world", "text/html");
+    return Server::HandlerResponse::Handled;
+  }
+  return Server::HandlerResponse::Unhandled;
+});
+```
+
+### Post routing handler
+
+```cpp
+svr.set_post_routing_handler([](const auto& req, auto& res) {
+  res.set_header("ADDITIONAL_HEADER", "value");
+});
+```
+
 ### 'multipart/form-data' POST data
 
 ```cpp
@@ -141,7 +223,7 @@ svr.Post("/multipart", [&](const auto& req, auto& res) {
 });
 ```
 
-### Receive content with Content receiver
+### Receive content with a content receiver
 
 ```cpp
 svr.Post("/content_receiver",
@@ -168,7 +250,7 @@ svr.Post("/content_receiver",
   });
 ```
 
-### Send content with Content provider
+### Send content with the content provider
 
 ```cpp
 const size_t DATA_CHUNK_SIZE = 4;
@@ -178,12 +260,32 @@ svr.Get("/stream", [&](const Request &req, Response &res) {
 
   res.set_content_provider(
     data->size(), // Content length
+    "text/plain", // Content type
     [data](size_t offset, size_t length, DataSink &sink) {
       const auto &d = *data;
       sink.write(&d[offset], std::min(length, DATA_CHUNK_SIZE));
       return true; // return 'false' if you want to cancel the process.
     },
-    [data] { delete data; });
+    [data](bool success) { delete data; });
+});
+```
+
+Without content length:
+
+```cpp
+svr.Get("/stream", [&](const Request &req, Response &res) {
+  res.set_content_provider(
+    "text/plain", // Content type
+    [&](size_t offset, size_t length, DataSink &sink) {
+      if (/* there is still data */) {
+        std::vector<char> data;
+        // prepare data...
+        sink.write(data.data(), data.size());
+      } else {
+        sink.done(); // No more data
+      }
+      return true; // return 'false' if you want to cancel the process.
+    });
 });
 ```
 
@@ -192,11 +294,12 @@ svr.Get("/stream", [&](const Request &req, Response &res) {
 ```cpp
 svr.Get("/chunked", [&](const Request& req, Response& res) {
   res.set_chunked_content_provider(
+    "text/plain",
     [](size_t offset, DataSink &sink) {
       sink.write("123", 3);
       sink.write("345", 3);
       sink.write("789", 3);
-      sink.done();
+      sink.done(); // No more data
       return true; // return 'false' if you want to cancel the process.
     }
   );
@@ -205,7 +308,7 @@ svr.Get("/chunked", [&](const Request& req, Response& res) {
 
 ### 'Expect: 100-continue' handler
 
-As default, the server sends `100 Continue` response for `Expect: 100-continue` header.
+By default, the server sends a `100 Continue` response for an `Expect: 100-continue` header.
 
 ```cpp
 // Send a '417 Expectation Failed' response.
@@ -225,6 +328,7 @@ svr.set_expect_100_continue_handler([](const Request &req, Response &res) {
 
 ```cpp
 svr.set_keep_alive_max_count(2); // Default is 5
+svr.set_keep_alive_timeout(10);  // Default is 5
 ```
 
 ### Timeout
@@ -235,7 +339,7 @@ svr.set_write_timeout(5, 0); // 5 seconds
 svr.set_idle_interval(0, 100000); // 100 milliseconds
 ```
 
-### Set maximum payload length for reading request body
+### Set maximum payload length for reading a request body
 
 ```c++
 svr.set_payload_max_length(1024 * 1024 * 512); // 512MB
@@ -243,16 +347,21 @@ svr.set_payload_max_length(1024 * 1024 * 512); // 512MB
 
 ### Server-Sent Events
 
-Please check [here](https://github.com/yhirose/cpp-httplib/blob/master/example/sse.cc).
+Please see [Server example](https://github.com/yhirose/cpp-httplib/blob/master/example/ssesvr.cc) and [Client example](https://github.com/yhirose/cpp-httplib/blob/master/example/ssecli.cc).
 
 ### Default thread pool support
 
+`ThreadPool` is used as a **default** task queue, and the default thread count is 8, or `std::thread::hardware_concurrency()`. You can change it with `CPPHTTPLIB_THREAD_POOL_COUNT`.
 
-`ThreadPool` is used as a default task queue, and the default thread count is set to value from `std::thread::hardware_concurrency()`.
+If you want to set the thread count at runtime, there is no convenient way... But here is how.
 
-You can change the thread count by setting `CPPHTTPLIB_THREAD_POOL_COUNT`.
+```cpp
+svr.new_task_queue = [] { return new ThreadPool(12); };
+```
 
 ### Override the default thread pool with yours
+
+You can supply your own thread pool implementation according to your need.
 
 ```cpp
 class YourThreadPoolTaskQueue : public TaskQueue {
@@ -278,8 +387,8 @@ svr.new_task_queue = [] {
 };
 ```
 
-Client Example
---------------
+Client
+------
 
 ```c++
 #include <httplib.h>
@@ -287,14 +396,49 @@ Client Example
 
 int main(void)
 {
-  // IMPORTANT: 1st parameter must be a hostname or an IP address string.
   httplib::Client cli("localhost", 1234);
 
-  auto res = cli.Get("/hi");
-  if (res && res->status == 200) {
-    std::cout << res->body << std::endl;
+  if (auto res = cli.Get("/hi")) {
+    if (res->status == 200) {
+      std::cout << res->body << std::endl;
+    }
+  } else {
+    auto err = res.error();
+    ...
   }
 }
+```
+
+NOTE: Constructor with scheme-host-port string is now supported!
+
+```c++
+httplib::Client cli("localhost");
+httplib::Client cli("localhost:8080");
+httplib::Client cli("http://localhost");
+httplib::Client cli("http://localhost:8080");
+httplib::Client cli("https://localhost");
+httplib::SSLClient cli("localhost");
+```
+
+### Error code
+
+Here is the list of errors from `Result::error()`.
+
+```c++
+enum Error {
+  Success = 0,
+  Unknown,
+  Connection,
+  BindIPAddress,
+  Read,
+  Write,
+  ExceedRedirectCount,
+  Canceled,
+  SSLConnection,
+  SSLLoadingCerts,
+  SSLServerVerification,
+  UnsupportedMultipartBoundaryChars
+};
 ```
 
 ### GET with HTTP headers
@@ -305,19 +449,12 @@ httplib::Headers headers = {
 };
 auto res = cli.Get("/hi", headers);
 ```
-
-### GET with Content Receiver
-
+or
 ```c++
-std::string body;
-
-auto res = cli.Get("/large-data",
-  [&](const char *data, size_t data_length) {
-    body.append(data, data_length);
-    return true;
-  });
-
-assert(res->body.empty());
+cli.set_default_headers({
+  { "Accept-Encoding", "gzip, deflate" }
+});
+auto res = cli.Get("/hi");
 ```
 
 ### POST
@@ -388,10 +525,21 @@ cli.set_read_timeout(5, 0); // 5 seconds
 cli.set_write_timeout(5, 0); // 5 seconds
 ```
 
-### Receive content with Content receiver
+### Receive content with a content receiver
+
+```c++
+std::string body;
+
+auto res = cli.Get("/large-data",
+  [&](const char *data, size_t data_length) {
+    body.append(data, data_length);
+    return true;
+  });
+```
 
 ```cpp
 std::string body;
+
 auto res = cli.Get(
   "/stream", Headers(),
   [&](const Response &response) {
@@ -404,14 +552,30 @@ auto res = cli.Get(
   });
 ```
 
-### Send content with Content provider
+### Send content with a content provider
 
 ```cpp
 std::string body = ...;
-auto res = cli_.Post(
+
+auto res = cli.Post(
   "/stream", body.size(),
   [](size_t offset, size_t length, DataSink &sink) {
     sink.write(body.data() + offset, length);
+    return true; // return 'false' if you want to cancel the request.
+  },
+  "text/plain");
+```
+
+### Chunked transfer encoding
+
+```cpp
+auto res = cli.Post(
+  "/stream",
+  [](size_t offset, DataSink &sink) {
+    sink.os << "chunked data 1";
+    sink.os << "chunked data 2";
+    sink.os << "chunked data 3";
+    sink.done();
     return true; // return 'false' if you want to cancel the request.
   },
   "text/plain");
@@ -423,13 +587,12 @@ auto res = cli_.Post(
 httplib::Client client(url, port);
 
 // prints: 0 / 000 bytes => 50% complete
-std::shared_ptr<httplib::Response> res =
-  cli.Get("/", [](uint64_t len, uint64_t total) {
-    printf("%lld / %lld bytes => %d%% complete\n",
-      len, total,
-      (int)(len*100/total));
-    return true; // return 'false' if you want to cancel the request.
-  }
+auto res = cli.Get("/", [](uint64_t len, uint64_t total) {
+  printf("%lld / %lld bytes => %d%% complete\n",
+    len, total,
+    (int)(len*100/total));
+  return true; // return 'false' if you want to cancel the request.
+}
 );
 ```
 
@@ -443,6 +606,9 @@ cli.set_basic_auth("user", "pass");
 
 // Digest Authentication
 cli.set_digest_auth("user", "pass");
+
+// Bearer Token Authentication
+cli.set_bearer_token_auth("token");
 ```
 
 NOTE: OpenSSL is required for Digest Authentication.
@@ -457,6 +623,9 @@ cli.set_proxy_basic_auth("user", "pass");
 
 // Digest Authentication
 cli.set_proxy_digest_auth("user", "pass");
+
+// Bearer Token Authentication
+cli.set_proxy_bearer_token_auth("pass");
 ```
 
 NOTE: OpenSSL is required for Digest Authentication.
@@ -506,7 +675,7 @@ res = cli.Get("/");
 res->status; // 200
 ```
 
-### Use a specitic network interface
+### Use a specific network interface
 
 NOTE: This feature is not available on Windows, yet.
 
@@ -514,36 +683,26 @@ NOTE: This feature is not available on Windows, yet.
 cli.set_interface("eth0"); // Interface name, IP address or host name
 ```
 
-OpenSSL Support
----------------
+Compression
+-----------
 
-SSL support is available with `CPPHTTPLIB_OPENSSL_SUPPORT`. `libssl` and `libcrypto` should be linked.
+The server can apply compression to the following MIME type contents:
 
-NOTE: cpp-httplib supports 1.1.1 (until 2023-09-11) and 1.0.2 (2019-12-31).
-
-```c++
-#define CPPHTTPLIB_OPENSSL_SUPPORT
-
-SSLServer svr("./cert.pem", "./key.pem");
-
-SSLClient cli("localhost", 8080);
-cli.set_ca_cert_path("./ca-bundle.crt");
-cli.enable_server_certificate_verification(true);
-```
-
-Zlib Support
-------------
-
-'gzip' compression is available with `CPPHTTPLIB_ZLIB_SUPPORT`. `libz` should be linked.
-
-The server applies gzip compression to the following MIME type contents:
-
-  * all text types
+  * all text types except text/event-stream
   * image/svg+xml
   * application/javascript
   * application/json
   * application/xml
   * application/xhtml+xml
+
+### Zlib Support
+
+'gzip' compression is available with `CPPHTTPLIB_ZLIB_SUPPORT`. `libz` should be linked.
+
+### Brotli Support
+
+Brotli compression is available with `CPPHTTPLIB_BROTLI_SUPPORT`. Necessary libraries should be linked.
+Please see https://github.com/google/brotli for more detail.
 
 ### Compress request body on client
 
@@ -556,9 +715,35 @@ res = cli.Post("/resource/foo", "...", "text/plain");
 
 ```c++
 cli.set_decompress(false);
-res = cli.Get("/resource/foo", {{"Accept-Encoding", "gzip, deflate"}});
+res = cli.Get("/resource/foo", {{"Accept-Encoding", "gzip, deflate, br"}});
 res->body; // Compressed data
 ```
+
+SSL Support
+-----------
+
+SSL support is available with `CPPHTTPLIB_OPENSSL_SUPPORT`. `libssl` and `libcrypto` should be linked.
+
+NOTE: cpp-httplib currently supports only version 1.1.1.
+
+```c++
+#define CPPHTTPLIB_OPENSSL_SUPPORT
+#include "path/to/httplib.h"
+
+// Server
+httplib::SSLServer svr("./cert.pem", "./key.pem");
+
+// Client
+httplib::Client cli("https://localhost:1234");
+
+// Use your CA bundle
+cli.set_ca_cert_path("./ca-bundle.crt");
+
+// Disable cert verification
+cli.enable_server_certificate_verification(false);
+```
+
+Note: When using SSL, it seems impossible to avoid SIGPIPE in all cases, since on some operating systems, SIGPIPE can only be suppressed on a per-message basis, but there is no way to make the OpenSSL library do so for its internal communications. If your program needs to avoid being terminated on SIGPIPE, the only fully general way might be to set up a signal handler for SIGPIPE to handle or ignore it yourself.
 
 Split httplib.h into .h and .cc
 -------------------------------
@@ -591,12 +776,12 @@ Include `httplib.h` before `Windows.h` or include `Windows.h` by defining `WIN32
 #include <httplib.h>
 ```
 
-Note: Cygwin on Windows is not supported.
+Note: Windows 8 or lower and Cygwin on Windows are not supported.
 
 License
 -------
 
-MIT license (© 2020 Yuji Hirose)
+MIT license (© 2021 Yuji Hirose)
 
 Special Thanks To
 -----------------
