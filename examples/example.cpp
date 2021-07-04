@@ -5,11 +5,9 @@
 // for convenience
 using MJPEGStreamer = nadjieb::MJPEGStreamer;
 
-int main()
-{
+int main() {
     cv::VideoCapture cap(0);
-    if (!cap.isOpened())
-    {
+    if (!cap.isOpened()) {
         std::cerr << "VideoCapture not opened\n";
         exit(EXIT_FAILURE);
     }
@@ -28,12 +26,10 @@ int main()
     streamer.start(8080);
 
     // Visit /shutdown or another defined target to stop the loop and graceful shutdown
-    while (streamer.isAlive())
-    {
+    while (streamer.isAlive()) {
         cv::Mat frame;
         cap >> frame;
-        if (frame.empty())
-        {
+        if (frame.empty()) {
             std::cerr << "frame not grabbed\n";
             exit(EXIT_FAILURE);
         }

@@ -4,10 +4,8 @@
 
 #include <string>
 
-TEST_SUITE("Versioni")
-{
-    TEST_CASE("Version")
-    {
+TEST_SUITE("Version") {
+    TEST_CASE("Version") {
         CHECK(NADJIEB_MJPEG_STREAMER_VERSION_MAJOR == 2);
         CHECK(NADJIEB_MJPEG_STREAMER_VERSION_MINOR == 0);
         CHECK(NADJIEB_MJPEG_STREAMER_VERSION_PATCH == 0);

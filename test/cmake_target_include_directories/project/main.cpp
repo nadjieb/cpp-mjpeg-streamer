@@ -1,6 +1,5 @@
 #include <nadjieb/mjpeg_streamer.hpp>
 
-int main()
-{
+int main() {
     nadjieb::MJPEGStreamer streamer;
 }
