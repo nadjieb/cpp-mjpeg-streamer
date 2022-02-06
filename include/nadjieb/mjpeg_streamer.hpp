@@ -143,6 +143,11 @@ class MJPEGStreamer {
         return master_socket_ > 0;
     }
 
+    bool hasClient(const std::string& path) {
+        std::unique_lock<std::mutex> lock(clients_mutex_);
+        return path2clients_.find(path) != path2clients_.end() && !path2clients_[path].empty();
+    }
+
    private:
     struct Payload {
         std::string buffer;
