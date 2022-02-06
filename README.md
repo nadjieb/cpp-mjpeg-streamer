@@ -112,3 +112,9 @@ cmake .. && make
 ./example
 ```
 then open the `index.html` in browser to see the streams.
+
+## Contributing
+Please read the [contribution guidelines](CONTRIBUTING.md) before starting work on a pull request.
+
+## License
+The project is licensed under the [MIT License](LICENSE).

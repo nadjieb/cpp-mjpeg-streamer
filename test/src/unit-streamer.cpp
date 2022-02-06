@@ -22,7 +22,10 @@ TEST_SUITE("streamer") {
                 streamer.start(1234);
                 streamer.publish("/foo", "foo");
 
-                THEN("The streamer is alive") { CHECK(streamer.isAlive() == true); }
+                THEN("The streamer is alive but has no client for \"/foo\"") {
+                    CHECK(streamer.isAlive() == true);
+                    CHECK(streamer.hasClient("/foo") == false);
+                }
             }
 
             WHEN("The streamer stop") {
@@ -74,6 +77,8 @@ TEST_SUITE("streamer") {
                 THEN("The received buffers equal to the initial buffers") {
                     CHECK(received_buffer1 == buffer1);
                     CHECK(received_buffer2 == buffer2);
+                    CHECK(streamer.hasClient("/buffer1") == true);
+                    CHECK(streamer.hasClient("/buffer2") == true);
                 }
             }
         }
@@ -91,6 +96,8 @@ TEST_SUITE("streamer") {
                 httplib::Client cli("localhost", 1236);
 
                 auto res = cli.Get("/stop");
+
+                std::this_thread::sleep_for(std::chrono::seconds(2));
 
                 THEN("The streamer is not alive") {
                     CHECK(res->status == 200);
