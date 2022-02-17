@@ -37,6 +37,7 @@ SOFTWARE.
 #include <array>
 #include <condition_variable>
 #include <functional>
+#include <iostream>
 #include <mutex>
 #include <queue>
 #include <stdexcept>
