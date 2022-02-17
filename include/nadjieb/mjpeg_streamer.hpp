@@ -28,6 +28,7 @@ SOFTWARE.
 #pragma once
 
 #include <netinet/in.h>
+#include <poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <csignal>
@@ -198,7 +199,20 @@ class MJPEGStreamer {
                 {
                     std::unique_lock<std::mutex> lock(
                         this->send_mutices_.at(payload.sd % NUM_SEND_MUTICES));
-                    n = ::write(payload.sd, res_str.c_str(), res_str.size());
+                    struct pollfd psd;
+                    psd.events = POLLOUT;
+                    psd.revents = 0;
+                    psd.fd = payload.sd;
+                    if (poll(&psd, 1, 1) > 0) {
+                        if (psd.revents & (POLLNVAL | POLLERR | POLLHUP | POLLRDHUP)) {
+                            std::cout << "Socket descriptor expired!" << std::endl;
+                            n = 0;
+                        } else {
+                            n = ::write(payload.sd, res_str.c_str(), res_str.size());
+                        }
+                    } else {
+                        std::cout << "Error polling for socket!" << std::endl;
+                    }
                 }
 
                 if (n < static_cast<int>(res_str.size())) {

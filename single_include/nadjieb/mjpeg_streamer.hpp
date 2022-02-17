@@ -28,6 +28,7 @@ SOFTWARE.
 #pragma once
 
 #include <netinet/in.h>
+#include <poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <csignal>
@@ -47,7 +48,6 @@ SOFTWARE.
 
 // #include <nadjieb/detail/version.hpp>
 
-
 /// The major version number
 #define NADJIEB_MJPEG_STREAMER_VERSION_MAJOR 2
 
@@ -58,14 +58,14 @@ SOFTWARE.
 #define NADJIEB_MJPEG_STREAMER_VERSION_PATCH 0
 
 /// The complete version number
-#define NADJIEB_MJPEG_STREAMER_VERSION_CODE (NADJIEB_MJPEG_STREAMER_VERSION_MAJOR * 10000 + NADJIEB_MJPEG_STREAMER_VERSION_MINOR * 100 + NADJIEB_MJPEG_STREAMER_VERSION_PATCH)
+#define NADJIEB_MJPEG_STREAMER_VERSION_CODE                                                    \
+    (NADJIEB_MJPEG_STREAMER_VERSION_MAJOR * 10000 + NADJIEB_MJPEG_STREAMER_VERSION_MINOR * 100 \
+     + NADJIEB_MJPEG_STREAMER_VERSION_PATCH)
 
 /// Version number as string
 #define NADJIEB_MJPEG_STREAMER_VERSION_STRING "2.0.0"
 
-
 // #include <nadjieb/detail/http_message.hpp>
-
 
 #include <sstream>
 #include <string>
@@ -128,7 +128,6 @@ struct HTTPMessage {
     std::string method() const { return start_line.substr(0, start_line.find(' ')); }
 };
 }  // namespace nadjieb
-
 
 namespace nadjieb {
 constexpr int NUM_SEND_MUTICES = 100;
@@ -279,7 +278,20 @@ class MJPEGStreamer {
                 {
                     std::unique_lock<std::mutex> lock(
                         this->send_mutices_.at(payload.sd % NUM_SEND_MUTICES));
-                    n = ::write(payload.sd, res_str.c_str(), res_str.size());
+                    struct pollfd psd;
+                    psd.events = POLLOUT;
+                    psd.revents = 0;
+                    psd.fd = payload.sd;
+                    if (poll(&psd, 1, 1) > 0) {
+                        if (psd.revents & (POLLNVAL | POLLERR | POLLHUP | POLLRDHUP)) {
+                            std::cout << "Socket descriptor expired!" << std::endl;
+                            n = 0;
+                        } else {
+                            n = ::write(payload.sd, res_str.c_str(), res_str.size());
+                        }
+                    } else {
+                        std::cout << "Error polling for socket!" << std::endl;
+                    }
                 }
 
                 if (n < static_cast<int>(res_str.size())) {
