@@ -252,156 +252,158 @@ class MJPEGStreamer {
     std::queue<Payload> payloads_;
     std::unordered_map<std::string, std::vector<int>> path2clients_;
 
-    std::function<void()> worker() {
-        return [this]() {
-            while (this->isAlive()) {
-                Payload payload;
+    std::function<void()> worker(){return [this]() {
+        while (this->isAlive()) {
+            Payload payload;
 
-                {
-                    std::unique_lock<std::mutex> lock(this->payloads_mutex_);
-                    this->condition_.wait(lock, [this]() {
-                        return this->master_socket_ < 0 || !this->payloads_.empty();
-                    });
-                    if ((this->master_socket_ < 0) && (this->payloads_.empty())) {
-                        return;
-                    }
-                    payload = std::move(this->payloads_.front());
-                    this->payloads_.pop();
+            {
+                std::unique_lock<std::mutex> lock(this->payloads_mutex_);
+                this->condition_.wait(lock, [this]() {
+                    return this->master_socket_ < 0 || !this->payloads_.empty();
+                });
+                if ((this->master_socket_ < 0) && (this->payloads_.empty())) {
+                    return;
                 }
+                payload = std::move(this->payloads_.front());
+                this->payloads_.pop();
+            }
 
-                HTTPMessage res;
-                res.start_line = "--boundarydonotcross";
-                res.headers["Content-Type"] = "image/jpeg";
-                res.headers["Content-Length"] = std::to_string(payload.buffer.size());
-                res.body = payload.buffer;
+            HTTPMessage res;
+            res.start_line = "--boundarydonotcross";
+            res.headers["Content-Type"] = "image/jpeg";
+            res.headers["Content-Length"] = std::to_string(payload.buffer.size());
+            res.body = payload.buffer;
 
-                auto res_str = res.serialize();
+            auto res_str = res.serialize();
 
-                int n;
-                {
-                    std::unique_lock<std::mutex> lock(
-                        this->send_mutices_.at(payload.sd % NUM_SEND_MUTICES));
-                    struct pollfd psd;
-                    psd.events = POLLOUT;
-                    psd.revents = 0;
-                    psd.fd = payload.sd;
-                    if (poll(&psd, 1, 1) > 0) {
-                        if (psd.revents & (POLLNVAL | POLLERR | POLLHUP | POLLRDHUP)) {
-                            std::cout << "Socket descriptor expired!" << std::endl;
-                            n = 0;
-                        } else {
-                            n = ::write(payload.sd, res_str.c_str(), res_str.size());
-                        }
+            int n;
+            {
+                std::unique_lock<std::mutex> lock(
+                    this->send_mutices_.at(payload.sd % NUM_SEND_MUTICES));
+                struct pollfd psd;
+                psd.events = POLLOUT;
+                psd.revents = 0;
+                psd.fd = payload.sd;
+                if (poll(&psd, 1, 1) > 0) {
+#if defined(__APPLE__)
+                    if (psd.revents & (POLLNVAL | POLLERR | POLLHUP)) {
+#else
+                    if (psd.revents & (POLLNVAL | POLLERR | POLLHUP | POLLRDHUP)) {
+#endif
+                        std::cout << "Socket descriptor expired!" << std::endl;
+                        n = 0;
                     } else {
-                        std::cout << "Error polling for socket!" << std::endl;
+                        n = ::write(payload.sd, res_str.c_str(), res_str.size());
                     }
-                }
-
-                if (n < static_cast<int>(res_str.size())) {
-                    std::unique_lock<std::mutex> lock(this->clients_mutex_);
-                    auto& p2c = this->path2clients_[payload.path];
-                    if (std::find(p2c.begin(), p2c.end(), payload.sd) != p2c.end()) {
-                        p2c.erase(std::remove(p2c.begin(), p2c.end(), payload.sd), p2c.end());
-                        ::close(payload.sd);
-                    }
-                }
-            }
-        };
-    }
-
-    std::function<void()> listener() {
-        return [this]() {
-            HTTPMessage bad_request_res;
-            bad_request_res.start_line = "HTTP/1.1 400 Bad Request";
-
-            HTTPMessage shutdown_res;
-            shutdown_res.start_line = "HTTP/1.1 200 OK";
-
-            HTTPMessage method_not_allowed_res;
-            method_not_allowed_res.start_line = "HTTP/1.1 405 Method Not Allowed";
-
-            HTTPMessage init_res;
-            init_res.start_line = "HTTP/1.1 200 OK";
-            init_res.headers["Connection"] = "close";
-            init_res.headers["Cache-Control"]
-                = "no-cache, no-store, must-revalidate, pre-check=0, post-check=0, max-age=0";
-            init_res.headers["Pragma"] = "no-cache";
-            init_res.headers["Content-Type"]
-                = "multipart/x-mixed-replace; boundary=boundarydonotcross";
-
-            auto bad_request_res_str = bad_request_res.serialize();
-            auto shutdown_res_str = shutdown_res.serialize();
-            auto method_not_allowed_res_str = method_not_allowed_res.serialize();
-            auto init_res_str = init_res.serialize();
-
-            int addrlen = sizeof(this->address_);
-
-            fd_set fd;
-            FD_ZERO(&fd);
-
-            auto master_socket = this->master_socket_;
-
-            while (this->isAlive()) {
-                struct timeval to;
-                to.tv_sec = 1;
-                to.tv_usec = 0;
-
-                FD_SET(this->master_socket_, &fd);
-
-                if (select(this->master_socket_ + 1, &fd, nullptr, nullptr, &to) > 0) {
-                    auto new_socket = ::accept(
-                        this->master_socket_, reinterpret_cast<struct sockaddr*>(&(this->address_)),
-                        reinterpret_cast<socklen_t*>(&addrlen));
-                    this->panicIfUnexpected(new_socket < 0, "ERROR: accept\n");
-
-                    std::string buff(4096, 0);
-                    this->readBuff(new_socket, &buff[0], buff.size());
-
-                    HTTPMessage req(buff);
-
-                    if (req.target() == this->shutdown_target_) {
-                        this->writeBuff(
-                            new_socket, shutdown_res_str.c_str(), shutdown_res_str.size());
-                        ::close(new_socket);
-
-                        std::unique_lock<std::mutex> lock(this->payloads_mutex_);
-                        this->master_socket_ = -1;
-                        this->condition_.notify_all();
-
-                        continue;
-                    }
-
-                    if (req.method() != "GET") {
-                        this->writeBuff(
-                            new_socket, method_not_allowed_res_str.c_str(),
-                            method_not_allowed_res_str.size());
-                        ::close(new_socket);
-                        continue;
-                    }
-
-                    this->writeBuff(new_socket, init_res_str.c_str(), init_res_str.size());
-
-                    std::unique_lock<std::mutex> lock(this->clients_mutex_);
-                    this->path2clients_[req.target()].push_back(new_socket);
+                } else {
+                    std::cout << "Error polling for socket!" << std::endl;
                 }
             }
 
-            ::shutdown(master_socket, 2);
-        };
-    }
-
-    static void panicIfUnexpected(bool condition, const std::string& message) {
-        if (condition) {
-            throw std::runtime_error(message);
+            if (n < static_cast<int>(res_str.size())) {
+                std::unique_lock<std::mutex> lock(this->clients_mutex_);
+                auto& p2c = this->path2clients_[payload.path];
+                if (std::find(p2c.begin(), p2c.end(), payload.sd) != p2c.end()) {
+                    p2c.erase(std::remove(p2c.begin(), p2c.end(), payload.sd), p2c.end());
+                    ::close(payload.sd);
+                }
+            }
         }
-    }
+    };
+}
 
-    static void readBuff(int fd, void* buf, size_t nbyte) {
-        panicIfUnexpected(::read(fd, buf, nbyte) < 0, "ERROR: read\n");
-    }
+std::function<void()>
+listener() {
+    return [this]() {
+        HTTPMessage bad_request_res;
+        bad_request_res.start_line = "HTTP/1.1 400 Bad Request";
 
-    static void writeBuff(int fd, const void* buf, size_t nbyte) {
-        panicIfUnexpected(::write(fd, buf, nbyte) < 0, "ERROR: write\n");
+        HTTPMessage shutdown_res;
+        shutdown_res.start_line = "HTTP/1.1 200 OK";
+
+        HTTPMessage method_not_allowed_res;
+        method_not_allowed_res.start_line = "HTTP/1.1 405 Method Not Allowed";
+
+        HTTPMessage init_res;
+        init_res.start_line = "HTTP/1.1 200 OK";
+        init_res.headers["Connection"] = "close";
+        init_res.headers["Cache-Control"]
+            = "no-cache, no-store, must-revalidate, pre-check=0, post-check=0, max-age=0";
+        init_res.headers["Pragma"] = "no-cache";
+        init_res.headers["Content-Type"] = "multipart/x-mixed-replace; boundary=boundarydonotcross";
+
+        auto bad_request_res_str = bad_request_res.serialize();
+        auto shutdown_res_str = shutdown_res.serialize();
+        auto method_not_allowed_res_str = method_not_allowed_res.serialize();
+        auto init_res_str = init_res.serialize();
+
+        int addrlen = sizeof(this->address_);
+
+        fd_set fd;
+        FD_ZERO(&fd);
+
+        auto master_socket = this->master_socket_;
+
+        while (this->isAlive()) {
+            struct timeval to;
+            to.tv_sec = 1;
+            to.tv_usec = 0;
+
+            FD_SET(this->master_socket_, &fd);
+
+            if (select(this->master_socket_ + 1, &fd, nullptr, nullptr, &to) > 0) {
+                auto new_socket = ::accept(
+                    this->master_socket_, reinterpret_cast<struct sockaddr*>(&(this->address_)),
+                    reinterpret_cast<socklen_t*>(&addrlen));
+                this->panicIfUnexpected(new_socket < 0, "ERROR: accept\n");
+
+                std::string buff(4096, 0);
+                this->readBuff(new_socket, &buff[0], buff.size());
+
+                HTTPMessage req(buff);
+
+                if (req.target() == this->shutdown_target_) {
+                    this->writeBuff(new_socket, shutdown_res_str.c_str(), shutdown_res_str.size());
+                    ::close(new_socket);
+
+                    std::unique_lock<std::mutex> lock(this->payloads_mutex_);
+                    this->master_socket_ = -1;
+                    this->condition_.notify_all();
+
+                    continue;
+                }
+
+                if (req.method() != "GET") {
+                    this->writeBuff(
+                        new_socket, method_not_allowed_res_str.c_str(),
+                        method_not_allowed_res_str.size());
+                    ::close(new_socket);
+                    continue;
+                }
+
+                this->writeBuff(new_socket, init_res_str.c_str(), init_res_str.size());
+
+                std::unique_lock<std::mutex> lock(this->clients_mutex_);
+                this->path2clients_[req.target()].push_back(new_socket);
+            }
+        }
+
+        ::shutdown(master_socket, 2);
+    };
+}
+
+static void panicIfUnexpected(bool condition, const std::string& message) {
+    if (condition) {
+        throw std::runtime_error(message);
     }
-};
+}
+
+static void readBuff(int fd, void* buf, size_t nbyte) {
+    panicIfUnexpected(::read(fd, buf, nbyte) < 0, "ERROR: read\n");
+}
+
+static void writeBuff(int fd, const void* buf, size_t nbyte) {
+    panicIfUnexpected(::write(fd, buf, nbyte) < 0, "ERROR: write\n");
+}
+};  // namespace nadjieb
 }  // namespace nadjieb
