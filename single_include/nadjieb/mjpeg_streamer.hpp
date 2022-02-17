@@ -48,6 +48,7 @@ SOFTWARE.
 
 // #include <nadjieb/detail/version.hpp>
 
+
 /// The major version number
 #define NADJIEB_MJPEG_STREAMER_VERSION_MAJOR 2
 
@@ -58,14 +59,14 @@ SOFTWARE.
 #define NADJIEB_MJPEG_STREAMER_VERSION_PATCH 0
 
 /// The complete version number
-#define NADJIEB_MJPEG_STREAMER_VERSION_CODE                                                    \
-    (NADJIEB_MJPEG_STREAMER_VERSION_MAJOR * 10000 + NADJIEB_MJPEG_STREAMER_VERSION_MINOR * 100 \
-     + NADJIEB_MJPEG_STREAMER_VERSION_PATCH)
+#define NADJIEB_MJPEG_STREAMER_VERSION_CODE (NADJIEB_MJPEG_STREAMER_VERSION_MAJOR * 10000 + NADJIEB_MJPEG_STREAMER_VERSION_MINOR * 100 + NADJIEB_MJPEG_STREAMER_VERSION_PATCH)
 
 /// Version number as string
 #define NADJIEB_MJPEG_STREAMER_VERSION_STRING "2.0.0"
 
+
 // #include <nadjieb/detail/http_message.hpp>
+
 
 #include <sstream>
 #include <string>
@@ -128,6 +129,7 @@ struct HTTPMessage {
     std::string method() const { return start_line.substr(0, start_line.find(' ')); }
 };
 }  // namespace nadjieb
+
 
 namespace nadjieb {
 constexpr int NUM_SEND_MUTICES = 100;
