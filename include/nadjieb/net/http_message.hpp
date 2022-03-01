@@ -5,6 +5,7 @@
 #include <unordered_map>
 
 namespace nadjieb {
+namespace net {
 struct HTTPMessage {
     HTTPMessage() = default;
     HTTPMessage(const std::string& message) { parse(message); }
@@ -60,4 +61,5 @@ struct HTTPMessage {
 
     std::string method() const { return start_line.substr(0, start_line.find(' ')); }
 };
+}  // namespace net
 }  // namespace nadjieb

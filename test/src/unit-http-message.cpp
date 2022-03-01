@@ -1,6 +1,6 @@
 #include <doctest/doctest.h>
 
-#include <nadjieb/detail/http_message.hpp>
+#include <nadjieb/net/http_message.hpp>
 
 #include <string>
 
@@ -23,7 +23,7 @@ TEST_SUITE("HTTPMessage") {
                   "</html>";
 
             WHEN("Serialize a HTTPMessage") {
-                nadjieb::HTTPMessage res;
+                nadjieb::net::HTTPMessage res;
                 res.start_line = "HTTP/1.1 200 OK";
                 res.headers["Date"] = "Mon, 27 Jul 2009 12:28:53 GMT";
                 res.headers["Server"] = "Apache/2.2.14";
@@ -62,7 +62,7 @@ TEST_SUITE("HTTPMessage") {
                   "\r\n"
                   "licenseID=string&content=string&/paramsXML=string";
             WHEN("HTTPMessage parse a raw request message") {
-                nadjieb::HTTPMessage req(raw);
+                nadjieb::net::HTTPMessage req(raw);
 
                 THEN("The HTTPMessage equal to the raw message") {
                     CHECK(req.start_line == "POST /cgi-bin/process.cgi HTTP/1.1");

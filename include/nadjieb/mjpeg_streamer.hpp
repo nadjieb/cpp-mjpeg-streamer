@@ -27,302 +27,95 @@ SOFTWARE.
 
 #pragma once
 
-#include <netinet/in.h>
-#include <poll.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#include <csignal>
+#include <nadjieb/net/http_message.hpp>
+#include <nadjieb/net/listener.hpp>
+#include <nadjieb/net/publisher.hpp>
+#include <nadjieb/net/socket.hpp>
+#include <nadjieb/utils/non_copyable.hpp>
 
-#include <algorithm>
-#include <array>
-#include <condition_variable>
-#include <functional>
-#include <iostream>
-#include <mutex>
-#include <queue>
-#include <stdexcept>
 #include <string>
+
+#include <chrono>
 #include <thread>
-#include <unordered_map>
-#include <utility>
-#include <vector>
-
-#include <nadjieb/detail/version.hpp>
-
-#include <nadjieb/detail/http_message.hpp>
 
 namespace nadjieb {
-constexpr int NUM_SEND_MUTICES = 100;
-class MJPEGStreamer {
+class MJPEGStreamer : public nadjieb::utils::NonCopyable {
    public:
-    MJPEGStreamer() = default;
-    virtual ~MJPEGStreamer() { stop(); }
-
-    MJPEGStreamer(MJPEGStreamer&&) = delete;
-    MJPEGStreamer(const MJPEGStreamer&) = delete;
-    MJPEGStreamer& operator=(MJPEGStreamer&&) = delete;
-    MJPEGStreamer& operator=(const MJPEGStreamer&) = delete;
-
     void start(int port, int num_workers = 1) {
-        ::signal(SIGPIPE, SIG_IGN);
-        master_socket_ = ::socket(AF_INET, SOCK_STREAM, 0);
-        panicIfUnexpected(master_socket_ < 0, "ERROR: socket not created\n");
-
-        int yes = 1;
-        auto res = ::setsockopt(
-            master_socket_, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char*>(&yes), sizeof(yes));
-        panicIfUnexpected(res < 0, "ERROR: setsocketopt SO_REUSEADDR\n");
-
-        address_.sin_family = AF_INET;
-        address_.sin_addr.s_addr = INADDR_ANY;
-        address_.sin_port = htons(port);
-        res = ::bind(
-            master_socket_, reinterpret_cast<struct sockaddr*>(&address_), sizeof(address_));
-        panicIfUnexpected(res < 0, "ERROR: bind\n");
-
-        res = ::listen(master_socket_, 5);
-        panicIfUnexpected(res < 0, "ERROR: listen\n");
-
-        for (auto i = 0; i < num_workers; ++i) {
-            workers_.emplace_back(worker());
-        }
-
-        thread_listener_ = std::thread(listener());
+        publisher_.start(num_workers);
+        listener_.withOnMessageCallback(on_message_cb_)
+            .withOnBeforeCloseCallback(on_before_close_cb_)
+            .runAsync(port);
     }
 
     void stop() {
-        if (isAlive()) {
-            std::unique_lock<std::mutex> lock(payloads_mutex_);
-            master_socket_ = -1;
-            condition_.notify_all();
-        }
-
-        if (!workers_.empty()) {
-            for (auto& w : workers_) {
-                if (w.joinable()) {
-                    w.join();
-                }
-            }
-            workers_.clear();
-        }
-
-        if (!path2clients_.empty()) {
-            for (auto& p2c : path2clients_) {
-                for (auto sd : p2c.second) {
-                    ::close(sd);
-                }
-            }
-            path2clients_.clear();
-        }
-
-        if (thread_listener_.joinable()) {
-            thread_listener_.join();
-        }
+        publisher_.stop();
+        listener_.stop();
     }
 
     void publish(const std::string& path, const std::string& buffer) {
-        std::vector<int> clients;
-        {
-            std::unique_lock<std::mutex> lock(clients_mutex_);
-            if ((path2clients_.find(path) == path2clients_.end())
-                || (path2clients_[path].empty())) {
-                return;
-            }
-            clients = path2clients_[path];
-        }
-
-        for (auto i : clients) {
-            std::unique_lock<std::mutex> lock(payloads_mutex_);
-            payloads_.emplace(Payload{buffer, path, i});
-            condition_.notify_one();
-        }
+        publisher_.enqueue(path, buffer);
     }
 
     void setShutdownTarget(const std::string& target) { shutdown_target_ = target; }
 
-    bool isAlive() {
-        std::unique_lock<std::mutex> lock(payloads_mutex_);
-        return master_socket_ > 0;
-    }
+    bool isAlive() { return (listener_.isAlive() && publisher_.isAlive()); }
 
-    bool hasClient(const std::string& path) {
-        std::unique_lock<std::mutex> lock(clients_mutex_);
-        return path2clients_.find(path) != path2clients_.end() && !path2clients_[path].empty();
-    }
+    bool hasClient(const std::string& path) { return publisher_.hasClient(path); }
 
    private:
-    struct Payload {
-        std::string buffer;
-        std::string path;
-        int sd;
-    };
-
-    int master_socket_ = -1;
-    struct sockaddr_in address_;
+    nadjieb::net::Listener listener_;
+    nadjieb::net::Publisher publisher_;
     std::string shutdown_target_ = "/shutdown";
 
-    std::thread thread_listener_;
-    std::mutex clients_mutex_;
-    std::mutex payloads_mutex_;
-    std::array<std::mutex, NUM_SEND_MUTICES> send_mutices_;
-    std::condition_variable condition_;
+    nadjieb::net::OnMessageCallback on_message_cb_ = [&](const nadjieb::net::SocketFD& sockfd,
+                                                         const std::string& message) {
+        nadjieb::net::HTTPMessage req(message);
+        nadjieb::net::OnMessageCallbackResponse res;
 
-    std::vector<std::thread> workers_;
-    std::queue<Payload> payloads_;
-    std::unordered_map<std::string, std::vector<int>> path2clients_;
+        if (req.target() == "/shutdown") {
+            nadjieb::net::HTTPMessage shutdown_res;
+            shutdown_res.start_line = "HTTP/1.1 200 OK";
+            auto shutdown_res_str = shutdown_res.serialize();
 
-    std::function<void()> worker(){return [this]() {
-        while (this->isAlive()) {
-            Payload payload;
+            nadjieb::net::sendViaSocket(
+                sockfd, shutdown_res_str.c_str(), shutdown_res_str.size(), 0);
 
-            {
-                std::unique_lock<std::mutex> lock(this->payloads_mutex_);
-                this->condition_.wait(lock, [this]() {
-                    return this->master_socket_ < 0 || !this->payloads_.empty();
-                });
-                if ((this->master_socket_ < 0) && (this->payloads_.empty())) {
-                    return;
-                }
-                payload = std::move(this->payloads_.front());
-                this->payloads_.pop();
-            }
+            publisher_.stop();
 
-            HTTPMessage res;
-            res.start_line = "--boundarydonotcross";
-            res.headers["Content-Type"] = "image/jpeg";
-            res.headers["Content-Length"] = std::to_string(payload.buffer.size());
-            res.body = payload.buffer;
-
-            auto res_str = res.serialize();
-
-            int n;
-            {
-                std::unique_lock<std::mutex> lock(
-                    this->send_mutices_.at(payload.sd % NUM_SEND_MUTICES));
-                struct pollfd psd;
-                psd.events = POLLOUT;
-                psd.revents = 0;
-                psd.fd = payload.sd;
-                if (poll(&psd, 1, 1) > 0) {
-#if defined(__APPLE__)
-                    if (psd.revents & (POLLNVAL | POLLERR | POLLHUP)) {
-#else
-                    if (psd.revents & (POLLNVAL | POLLERR | POLLHUP | POLLRDHUP)) {
-#endif
-                        std::cout << "Socket descriptor expired!" << std::endl;
-                        n = 0;
-                    } else {
-                        n = ::write(payload.sd, res_str.c_str(), res_str.size());
-                    }
-                } else {
-                    std::cout << "Error polling for socket!" << std::endl;
-                }
-            }
-
-            if (n < static_cast<int>(res_str.size())) {
-                std::unique_lock<std::mutex> lock(this->clients_mutex_);
-                auto& p2c = this->path2clients_[payload.path];
-                if (std::find(p2c.begin(), p2c.end(), payload.sd) != p2c.end()) {
-                    p2c.erase(std::remove(p2c.begin(), p2c.end(), payload.sd), p2c.end());
-                    ::close(payload.sd);
-                }
-            }
+            res.end_listener = true;
+            return res;
         }
-    };
-}
 
-std::function<void()>
-listener() {
-    return [this]() {
-        HTTPMessage bad_request_res;
-        bad_request_res.start_line = "HTTP/1.1 400 Bad Request";
+        if (req.method() != "GET") {
+            nadjieb::net::HTTPMessage method_not_allowed_res;
+            method_not_allowed_res.start_line = "HTTP/1.1 405 Method Not Allowed";
+            auto method_not_allowed_res_str = method_not_allowed_res.serialize();
 
-        HTTPMessage shutdown_res;
-        shutdown_res.start_line = "HTTP/1.1 200 OK";
+            nadjieb::net::sendViaSocket(
+                sockfd, method_not_allowed_res_str.c_str(), method_not_allowed_res_str.size(), 0);
 
-        HTTPMessage method_not_allowed_res;
-        method_not_allowed_res.start_line = "HTTP/1.1 405 Method Not Allowed";
+            res.close_conn = true;
+            return res;
+        }
 
-        HTTPMessage init_res;
+        nadjieb::net::HTTPMessage init_res;
         init_res.start_line = "HTTP/1.1 200 OK";
         init_res.headers["Connection"] = "close";
         init_res.headers["Cache-Control"]
             = "no-cache, no-store, must-revalidate, pre-check=0, post-check=0, max-age=0";
         init_res.headers["Pragma"] = "no-cache";
         init_res.headers["Content-Type"] = "multipart/x-mixed-replace; boundary=boundarydonotcross";
-
-        auto bad_request_res_str = bad_request_res.serialize();
-        auto shutdown_res_str = shutdown_res.serialize();
-        auto method_not_allowed_res_str = method_not_allowed_res.serialize();
         auto init_res_str = init_res.serialize();
 
-        int addrlen = sizeof(this->address_);
+        nadjieb::net::sendViaSocket(sockfd, init_res_str.c_str(), init_res_str.size(), 0);
 
-        fd_set fd;
-        FD_ZERO(&fd);
+        publisher_.add(req.target(), sockfd);
 
-        auto master_socket = this->master_socket_;
-
-        while (this->isAlive()) {
-            struct timeval to;
-            to.tv_sec = 1;
-            to.tv_usec = 0;
-
-            FD_SET(this->master_socket_, &fd);
-
-            if (select(this->master_socket_ + 1, &fd, nullptr, nullptr, &to) > 0) {
-                auto new_socket = ::accept(
-                    this->master_socket_, reinterpret_cast<struct sockaddr*>(&(this->address_)),
-                    reinterpret_cast<socklen_t*>(&addrlen));
-                this->panicIfUnexpected(new_socket < 0, "ERROR: accept\n");
-
-                std::string buff(4096, 0);
-                this->readBuff(new_socket, &buff[0], buff.size());
-
-                HTTPMessage req(buff);
-
-                if (req.target() == this->shutdown_target_) {
-                    this->writeBuff(new_socket, shutdown_res_str.c_str(), shutdown_res_str.size());
-                    ::close(new_socket);
-
-                    std::unique_lock<std::mutex> lock(this->payloads_mutex_);
-                    this->master_socket_ = -1;
-                    this->condition_.notify_all();
-
-                    continue;
-                }
-
-                if (req.method() != "GET") {
-                    this->writeBuff(
-                        new_socket, method_not_allowed_res_str.c_str(),
-                        method_not_allowed_res_str.size());
-                    ::close(new_socket);
-                    continue;
-                }
-
-                this->writeBuff(new_socket, init_res_str.c_str(), init_res_str.size());
-
-                std::unique_lock<std::mutex> lock(this->clients_mutex_);
-                this->path2clients_[req.target()].push_back(new_socket);
-            }
-        }
-
-        ::shutdown(master_socket, 2);
+        return res;
     };
-}
 
-static void panicIfUnexpected(bool condition, const std::string& message) {
-    if (condition) {
-        throw std::runtime_error(message);
-    }
-}
-
-static void readBuff(int fd, void* buf, size_t nbyte) {
-    panicIfUnexpected(::read(fd, buf, nbyte) < 0, "ERROR: read\n");
-}
-
-static void writeBuff(int fd, const void* buf, size_t nbyte) {
-    panicIfUnexpected(::write(fd, buf, nbyte) < 0, "ERROR: write\n");
-}
-};  // namespace nadjieb
+    nadjieb::net::OnBeforeCloseCallback on_before_close_cb_
+        = [&](const nadjieb::net::SocketFD& sockfd) { publisher_.removeClient(sockfd); };
+};
 }  // namespace nadjieb
