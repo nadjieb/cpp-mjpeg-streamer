@@ -3,6 +3,7 @@
 #include <nadjieb/net/socket.hpp>
 #include <nadjieb/utils/non_copyable.hpp>
 
+#include <algorithm>
 #include <condition_variable>
 #include <mutex>
 #include <queue>

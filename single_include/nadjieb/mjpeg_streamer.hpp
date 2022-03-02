@@ -435,6 +435,7 @@ class Listener : public nadjieb::utils::NonCopyable {
 // #include <nadjieb/utils/non_copyable.hpp>
 
 
+#include <algorithm>
 #include <condition_variable>
 #include <mutex>
 #include <queue>
