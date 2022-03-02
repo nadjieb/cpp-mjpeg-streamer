@@ -39,10 +39,18 @@ TEST_SUITE("streamer") {
         GIVEN("A client ready to receive image streams") {
             std::string received_buffer1;
             std::string received_buffer2;
+            bool ready = false;
+
+            nadjieb::MJPEGStreamer streamer;
+            streamer.start(1235);
 
             auto task = std::async(std::launch::async, [&]() {
                 const std::string delimiter = "\r\n\r\n";
                 httplib::Client cli("localhost", 1235);
+
+                while (!ready) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                }
 
                 auto res1 = cli.Get("/buffer1", [&](const char* data, size_t data_length) {
                     received_buffer1.assign(data, data_length);
@@ -57,19 +65,21 @@ TEST_SUITE("streamer") {
                         received_buffer2.find(delimiter) + delimiter.size());
                     return false;
                 });
+
+                streamer.stop();
             });
 
             WHEN("The streamer streams buffers") {
                 const std::string buffer1 = "buffer1";
                 const std::string buffer2 = "buffer2";
 
-                nadjieb::MJPEGStreamer streamer;
-                streamer.start(1235);
+                ready = true;
 
-                std::this_thread::sleep_for(std::chrono::seconds(2));
-                streamer.publish("/buffer1", buffer1);
-                std::this_thread::sleep_for(std::chrono::seconds(2));
-                streamer.publish("/buffer2", buffer2);
+                while (streamer.isRunning()) {
+                    streamer.publish("/buffer1", buffer1);
+                    streamer.publish("/buffer2", buffer2);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                }
 
                 task.wait();
 

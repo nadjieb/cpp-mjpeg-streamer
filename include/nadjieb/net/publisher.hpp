@@ -73,7 +73,12 @@ class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Run
             return;
         }
 
-        for (auto& sockfd : path2clients_[path]) {
+        auto it = path2clients_.find(path);
+        if (it == path2clients_.end()) {
+            return;
+        }
+
+        for (auto& sockfd : it->second) {
             std::unique_lock<std::mutex> payloads_lock(payloads_mtx_);
             payloads_.emplace(buffer, path, sockfd);
             payloads_lock.unlock();
