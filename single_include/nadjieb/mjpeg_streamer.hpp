@@ -282,12 +282,10 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
     }
 
     void stop() {
-        state_ = nadjieb::utils::State::TERMINATING;
         end_listener_ = true;
         if (thread_listener_.joinable()) {
             thread_listener_.join();
         }
-        state_ = nadjieb::utils::State::TERMINATED;
     }
 
     void runAsync(int port) {
@@ -421,6 +419,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
     }
 
     void closeAll() {
+        state_ = nadjieb::utils::State::TERMINATING;
         for (auto& pfd : fds_) {
             if (pfd.fd >= 0) {
                 on_before_close_cb_(pfd.fd);
@@ -429,6 +428,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
         }
 
         fds_.clear();
+        state_ = nadjieb::utils::State::TERMINATED;
     }
 
     void panicIfUnexpected(bool condition, const std::string& message, bool close_all) {
