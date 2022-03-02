@@ -7,6 +7,8 @@
 #include <poll.h>
 
 #include <functional>
+#include <iostream>
+#include <stdexcept>
 #include <thread>
 #include <vector>
 
@@ -124,7 +126,7 @@ class Listener : public nadjieb::utils::NonCopyable {
                         auto size = readFromSocket(fds_[i].fd, &buff[0], buff.size(), 0);
                         if (size < 0) {
                             if (errno != EWOULDBLOCK) {
-                                std::cerr << "recv() failed" << std::endl;
+                                std::cerr << "readFromSocket() failed" << std::endl;
                                 close_conn = true;
                             }
                             break;
@@ -167,7 +169,7 @@ class Listener : public nadjieb::utils::NonCopyable {
     }
 
    private:
-    SocketFD listen_sd_ = SOCKET_INVALID;
+    SocketFD listen_sd_ = SOCKET_ERROR;
     bool end_listener_ = true;
     std::vector<struct pollfd> fds_;
     OnMessageCallback on_message_cb_;
@@ -176,7 +178,7 @@ class Listener : public nadjieb::utils::NonCopyable {
 
     void compress() {
         for (auto it = fds_.begin(); it != fds_.end();) {
-            if ((*it).fd == SOCKET_INVALID) {
+            if ((*it).fd == SOCKET_ERROR) {
                 it = fds_.erase(it);
             } else {
                 ++it;

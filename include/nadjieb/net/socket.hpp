@@ -14,7 +14,6 @@ namespace net {
 typedef int SocketFD;
 
 const int SOCKET_ERROR = -1;
-const SocketFD SOCKET_INVALID = -1;
 
 static bool initSocket() {
     signal(SIGPIPE, SIG_IGN);
@@ -44,21 +43,21 @@ static void setSocketReuseAddress(SocketFD sockfd) {
     const int enable = 1;
     auto res = ::setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (const char*)&enable, sizeof(int));
 
-    panicIfUnexpected(sockfd == SOCKET_ERROR, "setSocketReuseAddress() failed", sockfd);
+    panicIfUnexpected(res == SOCKET_ERROR, "setSocketReuseAddress() failed", sockfd);
 }
 
 static void setSocketReusePort(SocketFD sockfd) {
     const int enable = 1;
     auto res = ::setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(enable));
 
-    panicIfUnexpected(sockfd == SOCKET_ERROR, "setSocketReusePort() failed", sockfd);
+    panicIfUnexpected(res == SOCKET_ERROR, "setSocketReusePort() failed", sockfd);
 }
 
 static void setSocketNonblock(SocketFD sockfd) {
     unsigned long ul = true;
-    int res = ioctl(sockfd, FIONBIO, &ul);
+    auto res = ioctl(sockfd, FIONBIO, &ul);
 
-    panicIfUnexpected(sockfd == SOCKET_ERROR, "setSocketNonblock() failed", sockfd);
+    panicIfUnexpected(res == SOCKET_ERROR, "setSocketNonblock() failed", sockfd);
 }
 
 static void bindSocket(SocketFD sockfd, const char* ip, int port) {
@@ -66,16 +65,16 @@ static void bindSocket(SocketFD sockfd, const char* ip, int port) {
     ip_addr.sin_family = AF_INET;
     ip_addr.sin_port = htons(port);
     ip_addr.sin_addr.s_addr = INADDR_ANY;
-    auto res = inet_pton(AF_INET, ip, &ip_addr.sin_addr);
+    auto res = ::inet_pton(AF_INET, ip, &ip_addr.sin_addr);
     panicIfUnexpected(res <= 0, "inet_pton() failed", sockfd);
 
     res = ::bind(sockfd, (struct sockaddr*)&ip_addr, sizeof(ip_addr));
-    panicIfUnexpected(sockfd == SOCKET_ERROR, "bindSocket() failed", sockfd);
+    panicIfUnexpected(res == SOCKET_ERROR, "bindSocket() failed", sockfd);
 }
 
 static void listenOnSocket(SocketFD sockfd, int backlog) {
     auto res = ::listen(sockfd, backlog);
-    panicIfUnexpected(sockfd == SOCKET_ERROR, "listenOnSocket() failed", sockfd);
+    panicIfUnexpected(res == SOCKET_ERROR, "listenOnSocket() failed", sockfd);
 }
 
 static SocketFD acceptNewSocket(SocketFD sockfd) {
