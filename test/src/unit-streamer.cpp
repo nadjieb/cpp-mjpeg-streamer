@@ -76,7 +76,7 @@ TEST_SUITE("streamer") {
                     });
                 });
 
-                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                std::this_thread::sleep_for(std::chrono::milliseconds(1500));
 
                 THEN("The received buffers equal to the initial buffers") {
                     CHECK(received_buffer1 == buffer1);
@@ -103,6 +103,8 @@ TEST_SUITE("streamer") {
 
             WHEN("Client request to graceful shutdown") {
                 httplib::Client cli("localhost", 1236);
+
+                std::this_thread::sleep_for(std::chrono::seconds(2));
 
                 auto res = cli.Get("/stop");
 
