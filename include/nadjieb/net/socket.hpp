@@ -21,48 +21,44 @@ static bool initSocket() {
     return true;
 }
 
+static void closeSocket(SocketFD sockfd) {
+    ::close(sockfd);
+}
+
+static void panicIfUnexpected(bool condition, const std::string& message, const SocketFD sockfd) {
+    if (condition) {
+        closeSocket(sockfd);
+        throw std::runtime_error(message);
+    }
+}
+
 static SocketFD createSocket(int af, int type, int protocol) {
     SocketFD sockfd = ::socket(af, type, protocol);
 
-    if (sockfd == SOCKET_ERROR) {
-        throw std::runtime_error("createSocket() failed");
-    }
+    panicIfUnexpected(sockfd == SOCKET_ERROR, "createSocket() failed", sockfd);
 
     return sockfd;
-}
-
-static void closeSocket(SocketFD sockfd) {
-    ::close(sockfd);
 }
 
 static void setSocketReuseAddress(SocketFD sockfd) {
     const int enable = 1;
     auto res = ::setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (const char*)&enable, sizeof(int));
 
-    if (res == SOCKET_ERROR) {
-        closeSocket(sockfd);
-        throw std::runtime_error("setSocketReuseAddress() failed");
-    }
+    panicIfUnexpected(sockfd == SOCKET_ERROR, "setSocketReuseAddress() failed", sockfd);
 }
 
 static void setSocketReusePort(SocketFD sockfd) {
     const int enable = 1;
     auto res = ::setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(enable));
 
-    if (res == SOCKET_ERROR) {
-        closeSocket(sockfd);
-        throw std::runtime_error("setSocketReusePort() failed");
-    }
+    panicIfUnexpected(sockfd == SOCKET_ERROR, "setSocketReusePort() failed", sockfd);
 }
 
 static void setSocketNonblock(SocketFD sockfd) {
     unsigned long ul = true;
     int res = ioctl(sockfd, FIONBIO, &ul);
 
-    if (res == SOCKET_ERROR) {
-        closeSocket(sockfd);
-        throw std::runtime_error("setSocketNonblock() failed");
-    }
+    panicIfUnexpected(sockfd == SOCKET_ERROR, "setSocketNonblock() failed", sockfd);
 }
 
 static void bindSocket(SocketFD sockfd, const char* ip, int port) {
@@ -71,24 +67,15 @@ static void bindSocket(SocketFD sockfd, const char* ip, int port) {
     ip_addr.sin_port = htons(port);
     ip_addr.sin_addr.s_addr = INADDR_ANY;
     auto res = inet_pton(AF_INET, ip, &ip_addr.sin_addr);
-    if (res <= 0) {
-        closeSocket(sockfd);
-        throw std::runtime_error("inet_pton() failed");
-    }
+    panicIfUnexpected(res <= 0, "inet_pton() failed", sockfd);
 
     res = ::bind(sockfd, (struct sockaddr*)&ip_addr, sizeof(ip_addr));
-    if (res == SOCKET_ERROR) {
-        closeSocket(sockfd);
-        throw std::runtime_error("bindSocket() failed");
-    }
+    panicIfUnexpected(sockfd == SOCKET_ERROR, "bindSocket() failed", sockfd);
 }
 
 static void listenOnSocket(SocketFD sockfd, int backlog) {
     auto res = ::listen(sockfd, backlog);
-    if (res == SOCKET_ERROR) {
-        closeSocket(sockfd);
-        throw std::runtime_error("listenOnSocket() failed");
-    }
+    panicIfUnexpected(sockfd == SOCKET_ERROR, "listenOnSocket() failed", sockfd);
 }
 
 static SocketFD acceptNewSocket(SocketFD sockfd) {

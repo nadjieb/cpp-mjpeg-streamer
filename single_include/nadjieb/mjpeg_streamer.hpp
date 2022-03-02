@@ -27,6 +27,25 @@ SOFTWARE.
 
 #pragma once
 
+// #include <nadjieb/utils/version.hpp>
+
+
+/// The major version number
+#define NADJIEB_MJPEG_STREAMER_VERSION_MAJOR 3
+
+/// The minor version number
+#define NADJIEB_MJPEG_STREAMER_VERSION_MINOR 0
+
+/// The patch number
+#define NADJIEB_MJPEG_STREAMER_VERSION_PATCH 0
+
+/// The complete version number
+#define NADJIEB_MJPEG_STREAMER_VERSION_CODE (NADJIEB_MJPEG_STREAMER_VERSION_MAJOR * 10000 + NADJIEB_MJPEG_STREAMER_VERSION_MINOR * 100 + NADJIEB_MJPEG_STREAMER_VERSION_PATCH)
+
+/// Version number as string
+#define NADJIEB_MJPEG_STREAMER_VERSION_STRING "3.0.0"
+
+
 // #include <nadjieb/net/http_message.hpp>
 
 
@@ -121,48 +140,44 @@ static bool initSocket() {
     return true;
 }
 
+static void closeSocket(SocketFD sockfd) {
+    ::close(sockfd);
+}
+
+static void panicIfUnexpected(bool condition, const std::string& message, const SocketFD sockfd) {
+    if (condition) {
+        closeSocket(sockfd);
+        throw std::runtime_error(message);
+    }
+}
+
 static SocketFD createSocket(int af, int type, int protocol) {
     SocketFD sockfd = ::socket(af, type, protocol);
 
-    if (sockfd == SOCKET_ERROR) {
-        throw std::runtime_error("createSocket() failed");
-    }
+    panicIfUnexpected(sockfd == SOCKET_ERROR, "createSocket() failed", sockfd);
 
     return sockfd;
-}
-
-static void closeSocket(SocketFD sockfd) {
-    ::close(sockfd);
 }
 
 static void setSocketReuseAddress(SocketFD sockfd) {
     const int enable = 1;
     auto res = ::setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (const char*)&enable, sizeof(int));
 
-    if (res == SOCKET_ERROR) {
-        closeSocket(sockfd);
-        throw std::runtime_error("setSocketReuseAddress() failed");
-    }
+    panicIfUnexpected(sockfd == SOCKET_ERROR, "setSocketReuseAddress() failed", sockfd);
 }
 
 static void setSocketReusePort(SocketFD sockfd) {
     const int enable = 1;
     auto res = ::setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(enable));
 
-    if (res == SOCKET_ERROR) {
-        closeSocket(sockfd);
-        throw std::runtime_error("setSocketReusePort() failed");
-    }
+    panicIfUnexpected(sockfd == SOCKET_ERROR, "setSocketReusePort() failed", sockfd);
 }
 
 static void setSocketNonblock(SocketFD sockfd) {
     unsigned long ul = true;
     int res = ioctl(sockfd, FIONBIO, &ul);
 
-    if (res == SOCKET_ERROR) {
-        closeSocket(sockfd);
-        throw std::runtime_error("setSocketNonblock() failed");
-    }
+    panicIfUnexpected(sockfd == SOCKET_ERROR, "setSocketNonblock() failed", sockfd);
 }
 
 static void bindSocket(SocketFD sockfd, const char* ip, int port) {
@@ -171,24 +186,15 @@ static void bindSocket(SocketFD sockfd, const char* ip, int port) {
     ip_addr.sin_port = htons(port);
     ip_addr.sin_addr.s_addr = INADDR_ANY;
     auto res = inet_pton(AF_INET, ip, &ip_addr.sin_addr);
-    if (res <= 0) {
-        closeSocket(sockfd);
-        throw std::runtime_error("inet_pton() failed");
-    }
+    panicIfUnexpected(res <= 0, "inet_pton() failed", sockfd);
 
     res = ::bind(sockfd, (struct sockaddr*)&ip_addr, sizeof(ip_addr));
-    if (res == SOCKET_ERROR) {
-        closeSocket(sockfd);
-        throw std::runtime_error("bindSocket() failed");
-    }
+    panicIfUnexpected(sockfd == SOCKET_ERROR, "bindSocket() failed", sockfd);
 }
 
 static void listenOnSocket(SocketFD sockfd, int backlog) {
     auto res = ::listen(sockfd, backlog);
-    if (res == SOCKET_ERROR) {
-        closeSocket(sockfd);
-        throw std::runtime_error("listenOnSocket() failed");
-    }
+    panicIfUnexpected(sockfd == SOCKET_ERROR, "listenOnSocket() failed", sockfd);
 }
 
 static SocketFD acceptNewSocket(SocketFD sockfd) {
@@ -203,17 +209,6 @@ static int sendViaSocket(int socket, const void* buffer, size_t length, int flag
     return ::send(socket, buffer, length, flags);
 }
 }  // namespace net
-}  // namespace nadjieb
-
-// #include <nadjieb/utils/helper.hpp>
-
-
-#include <iostream>
-
-namespace nadjieb {
-static void logError(const std::string& error_message) {
-    std::cerr << error_message;
-}
 }  // namespace nadjieb
 
 // #include <nadjieb/utils/non_copyable.hpp>
@@ -240,7 +235,6 @@ class NonCopyable {
 #include <poll.h>
 
 #include <functional>
-#include <stdexcept>
 #include <thread>
 #include <vector>
 
@@ -358,7 +352,7 @@ class Listener : public nadjieb::utils::NonCopyable {
                         auto size = readFromSocket(fds_[i].fd, &buff[0], buff.size(), 0);
                         if (size < 0) {
                             if (errno != EWOULDBLOCK) {
-                                logError("recv() failed");
+                                std::cerr << "recv() failed" << std::endl;
                                 close_conn = true;
                             }
                             break;
@@ -595,12 +589,11 @@ class Publisher : public nadjieb::utils::NonCopyable {
 
 #include <string>
 
-#include <chrono>
-#include <thread>
-
 namespace nadjieb {
 class MJPEGStreamer : public nadjieb::utils::NonCopyable {
    public:
+    virtual ~MJPEGStreamer() { stop(); }
+
     void start(int port, int num_workers = 1) {
         publisher_.start(num_workers);
         listener_.withOnMessageCallback(on_message_cb_)
@@ -633,7 +626,7 @@ class MJPEGStreamer : public nadjieb::utils::NonCopyable {
         nadjieb::net::HTTPMessage req(message);
         nadjieb::net::OnMessageCallbackResponse res;
 
-        if (req.target() == "/shutdown") {
+        if (req.target() == shutdown_target_) {
             nadjieb::net::HTTPMessage shutdown_res;
             shutdown_res.start_line = "HTTP/1.1 200 OK";
             auto shutdown_res_str = shutdown_res.serialize();

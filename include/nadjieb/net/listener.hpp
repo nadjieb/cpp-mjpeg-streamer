@@ -1,14 +1,12 @@
 #pragma once
 
 #include <nadjieb/net/socket.hpp>
-#include <nadjieb/utils/helper.hpp>
 #include <nadjieb/utils/non_copyable.hpp>
 
 #include <errno.h>
 #include <poll.h>
 
 #include <functional>
-#include <stdexcept>
 #include <thread>
 #include <vector>
 
@@ -126,7 +124,7 @@ class Listener : public nadjieb::utils::NonCopyable {
                         auto size = readFromSocket(fds_[i].fd, &buff[0], buff.size(), 0);
                         if (size < 0) {
                             if (errno != EWOULDBLOCK) {
-                                logError("recv() failed");
+                                std::cerr << "recv() failed" << std::endl;
                                 close_conn = true;
                             }
                             break;

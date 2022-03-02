@@ -37,42 +37,46 @@ TEST_SUITE("streamer") {
     }
 
     TEST_CASE("publish image stream") {
-        GIVEN("A client ready to receive image streams") {
+        GIVEN("streamer and clients") {
+            nadjieb::MJPEGStreamer streamer;
+            const std::string buffer1 = "buffer1";
+            const std::string buffer2 = "buffer2";
+
+            const std::string delimiter = "\r\n\r\n";
             std::string received_buffer1;
             std::string received_buffer2;
 
-            auto task = std::async(std::launch::async, [&]() {
-                const std::string delimiter = "\r\n\r\n";
-                httplib::Client cli("localhost", 1235);
-
-                auto res1 = cli.Get("/buffer1", [&](const char* data, size_t data_length) {
-                    received_buffer1.assign(data, data_length);
-                    received_buffer1 = received_buffer1.substr(
-                        received_buffer1.find(delimiter) + delimiter.size());
-                    return false;
+            WHEN("Clients request for image stream") {
+                auto publishing = std::async(std::launch::async, [&]() {
+                    streamer.start(1235);
+                    while (streamer.isAlive()) {
+                        streamer.publish("/buffer1", buffer1);
+                        streamer.publish("/buffer2", buffer2);
+                        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                    }
                 });
 
-                auto res2 = cli.Get("/buffer2", [&](const char* data, size_t data_length) {
-                    received_buffer2.assign(data, data_length);
-                    received_buffer2 = received_buffer2.substr(
-                        received_buffer2.find(delimiter) + delimiter.size());
-                    return false;
+                auto path1 = std::async(std::launch::async, [&]() {
+                    httplib::Client cli1("localhost", 1235);
+                    cli1.Get("/buffer1", [&](const char* data, size_t data_length) {
+                        std::string buff;
+                        buff.assign(data, data_length);
+                        received_buffer1 = buff.substr(buff.find(delimiter) + delimiter.size());
+                        return streamer.isAlive();
+                    });
                 });
-            });
 
-            WHEN("The streamer streams buffers") {
-                const std::string buffer1 = "buffer1";
-                const std::string buffer2 = "buffer2";
+                auto path2 = std::async(std::launch::async, [&]() {
+                    httplib::Client cli2("localhost", 1235);
+                    cli2.Get("/buffer2", [&](const char* data, size_t data_length) {
+                        std::string buff;
+                        buff.assign(data, data_length);
+                        received_buffer2 = buff.substr(buff.find(delimiter) + delimiter.size());
+                        return streamer.isAlive();
+                    });
+                });
 
-                nadjieb::MJPEGStreamer streamer;
-                streamer.start(1235);
-
-                std::this_thread::sleep_for(std::chrono::seconds(2));
-                streamer.publish("/buffer1", buffer1);
-                std::this_thread::sleep_for(std::chrono::seconds(2));
-                streamer.publish("/buffer2", buffer2);
-
-                task.wait();
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
                 THEN("The received buffers equal to the initial buffers") {
                     CHECK(received_buffer1 == buffer1);
@@ -80,6 +84,11 @@ TEST_SUITE("streamer") {
                     CHECK(streamer.hasClient("/buffer1") == true);
                     CHECK(streamer.hasClient("/buffer2") == true);
                 }
+
+                streamer.stop();
+                publishing.wait();
+                path1.wait();
+                path2.wait();
             }
         }
     }
@@ -131,6 +140,7 @@ TEST_SUITE("streamer") {
                 streamer.start(1238);
                 while (streamer.isAlive()) {
                     streamer.publish("/buffer", "buffer");
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 }
             });
 
@@ -151,43 +161,6 @@ TEST_SUITE("streamer") {
 
             streamer.stop();
             task.wait();
-        }
-    }
-
-    TEST_CASE("Panic If Unexpected") {
-        GIVEN("A streamer initialized") {
-            nadjieb::MJPEGStreamer streamer;
-
-            WHEN("The streamer start") {
-                THEN("It will throw exception") {
-                    CHECK_THROWS_WITH(streamer.start(1234), "ERROR: bind\n");
-                }
-            }
-        }
-    }
-
-    TEST_CASE("Read Buffer") {
-        GIVEN("An invalid buffer initialized") {
-            void* buf = nullptr;
-
-            WHEN("Read buffer") {
-                THEN("It will throw exception") {
-                    CHECK_THROWS_WITH(nadjieb::MJPEGStreamer::readBuff(1, buf, 1), "ERROR: read\n");
-                }
-            }
-        }
-    }
-
-    TEST_CASE("Write Buffer") {
-        GIVEN("An invalid buffer initialized") {
-            void* buf = nullptr;
-
-            WHEN("Write buffer") {
-                THEN("It will throw exception") {
-                    CHECK_THROWS_WITH(
-                        nadjieb::MJPEGStreamer::writeBuff(1, buf, 1), "ERROR: write\n");
-                }
-            }
         }
     }
 }

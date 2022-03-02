@@ -27,6 +27,8 @@ SOFTWARE.
 
 #pragma once
 
+#include <nadjieb/utils/version.hpp>
+
 #include <nadjieb/net/http_message.hpp>
 #include <nadjieb/net/listener.hpp>
 #include <nadjieb/net/publisher.hpp>
@@ -35,12 +37,11 @@ SOFTWARE.
 
 #include <string>
 
-#include <chrono>
-#include <thread>
-
 namespace nadjieb {
 class MJPEGStreamer : public nadjieb::utils::NonCopyable {
    public:
+    virtual ~MJPEGStreamer() { stop(); }
+
     void start(int port, int num_workers = 1) {
         publisher_.start(num_workers);
         listener_.withOnMessageCallback(on_message_cb_)
@@ -73,7 +74,7 @@ class MJPEGStreamer : public nadjieb::utils::NonCopyable {
         nadjieb::net::HTTPMessage req(message);
         nadjieb::net::OnMessageCallbackResponse res;
 
-        if (req.target() == "/shutdown") {
+        if (req.target() == shutdown_target_) {
             nadjieb::net::HTTPMessage shutdown_res;
             shutdown_res.start_line = "HTTP/1.1 200 OK";
             auto shutdown_res_str = shutdown_res.serialize();
