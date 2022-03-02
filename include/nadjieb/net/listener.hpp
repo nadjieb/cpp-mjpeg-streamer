@@ -2,6 +2,7 @@
 
 #include <nadjieb/net/socket.hpp>
 #include <nadjieb/utils/non_copyable.hpp>
+#include <nadjieb/utils/runnable.hpp>
 
 #include <errno.h>
 #include <poll.h>
@@ -24,7 +25,7 @@ using OnMessageCallback
     = std::function<OnMessageCallbackResponse(const SocketFD&, const std::string&)>;
 using OnBeforeCloseCallback = std::function<void(const SocketFD&)>;
 
-class Listener : public nadjieb::utils::NonCopyable {
+class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runnable {
    public:
     Listener& withOnMessageCallback(const OnMessageCallback& callback) {
         on_message_cb_ = callback;
@@ -36,8 +37,6 @@ class Listener : public nadjieb::utils::NonCopyable {
         return *this;
     }
 
-    bool isAlive() { return !end_listener_; }
-
     void stop() {
         end_listener_ = true;
         if (thread_listener_.joinable()) {
@@ -46,18 +45,14 @@ class Listener : public nadjieb::utils::NonCopyable {
     }
 
     void runAsync(int port) {
+        state_ = nadjieb::utils::State::BOOTING;
         end_listener_ = false;
         thread_listener_ = std::thread(&Listener::run, this, port);
     }
 
     void run(int port) {
-        if (on_message_cb_ == nullptr) {
-            throw std::runtime_error("not setting on_message_cb");
-        }
-
-        if (on_before_close_cb_ == nullptr) {
-            throw std::runtime_error("not setting on_before_close_cb");
-        }
+        panicIfUnexpected(on_message_cb_ == nullptr, "not setting on_message_cb", false);
+        panicIfUnexpected(on_before_close_cb_ == nullptr, "not setting on_before_close_cb", false);
 
         end_listener_ = false;
 
@@ -73,13 +68,12 @@ class Listener : public nadjieb::utils::NonCopyable {
 
         std::string buff(4096, 0);
 
+        state_ = nadjieb::utils::State::RUNNING;
+
         while (!end_listener_) {
             int socket_count = ::poll(&fds_[0], fds_.size(), 100);
 
-            if (socket_count == SOCKET_ERROR) {
-                closeAll();
-                throw std::runtime_error("poll() failed");
-            }
+            panicIfUnexpected(socket_count == SOCKET_ERROR, "poll() failed", true);
 
             if (socket_count == 0) {
                 continue;
@@ -100,19 +94,13 @@ class Listener : public nadjieb::utils::NonCopyable {
                     continue;
                 }
 
-                if (fds_[i].revents != POLLIN) {
-                    closeAll();
-                    throw std::runtime_error("revents != POLLIN");
-                }
+                panicIfUnexpected(fds_[i].revents != POLLIN, "revents != POLLIN", true);
 
                 if (fds_[i].fd == listen_sd_) {
                     do {
                         auto new_socket = acceptNewSocket(listen_sd_);
                         if (new_socket < 0) {
-                            if (errno != EWOULDBLOCK) {
-                                closeAll();
-                                throw std::runtime_error("accept() failed");
-                            }
+                            panicIfUnexpected(errno != EWOULDBLOCK, "accept() failed", true);
                             break;
                         }
 
@@ -187,6 +175,7 @@ class Listener : public nadjieb::utils::NonCopyable {
     }
 
     void closeAll() {
+        state_ = nadjieb::utils::State::TERMINATING;
         for (auto& pfd : fds_) {
             if (pfd.fd >= 0) {
                 on_before_close_cb_(pfd.fd);
@@ -195,6 +184,16 @@ class Listener : public nadjieb::utils::NonCopyable {
         }
 
         fds_.clear();
+        state_ = nadjieb::utils::State::TERMINATED;
+    }
+
+    void panicIfUnexpected(bool condition, const std::string& message, bool close_all) {
+        if (condition) {
+            if (close_all) {
+                closeAll();
+            }
+            throw std::runtime_error(message);
+        }
     }
 };
 }  // namespace net

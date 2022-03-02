@@ -2,6 +2,7 @@
 
 #include <nadjieb/net/socket.hpp>
 #include <nadjieb/utils/non_copyable.hpp>
+#include <nadjieb/utils/runnable.hpp>
 
 #include <algorithm>
 #include <condition_variable>
@@ -14,19 +15,20 @@
 
 namespace nadjieb {
 namespace net {
-class Publisher : public nadjieb::utils::NonCopyable {
+class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runnable {
    public:
-    bool isAlive() { return !end_publisher_; }
-
     void start(int num_workers = 1) {
+        state_ = nadjieb::utils::State::BOOTING;
         end_publisher_ = false;
         workers_.reserve(num_workers);
         for (auto i = 0; i < num_workers; ++i) {
             workers_.emplace_back(&Publisher::worker, this);
         }
+        state_ = nadjieb::utils::State::RUNNING;
     }
 
     void stop() {
+        state_ = nadjieb::utils::State::TERMINATING;
         end_publisher_ = true;
         condition_.notify_all();
 
@@ -44,6 +46,7 @@ class Publisher : public nadjieb::utils::NonCopyable {
         while (!payloads_.empty()) {
             payloads_.pop();
         }
+        state_ = nadjieb::utils::State::TERMINATED;
     }
 
     void add(const std::string& path, const SocketFD& sockfd) {

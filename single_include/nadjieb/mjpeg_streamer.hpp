@@ -229,6 +229,24 @@ class NonCopyable {
 }  // namespace utils
 }  // namespace nadjieb
 
+// #include <nadjieb/utils/runnable.hpp>
+
+
+namespace nadjieb {
+namespace utils {
+enum class State { UNSPECIFIED = 0, NEW, BOOTING, RUNNING, TERMINATING, TERMINATED };
+class Runnable {
+   public:
+    State status() { return state_; }
+
+    bool isRunning() { return (state_ == State::RUNNING); }
+
+   protected:
+    State state_ = State::NEW;
+};
+}  // namespace utils
+}  // namespace nadjieb
+
 
 #include <errno.h>
 #include <poll.h>
@@ -251,7 +269,7 @@ using OnMessageCallback
     = std::function<OnMessageCallbackResponse(const SocketFD&, const std::string&)>;
 using OnBeforeCloseCallback = std::function<void(const SocketFD&)>;
 
-class Listener : public nadjieb::utils::NonCopyable {
+class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runnable {
    public:
     Listener& withOnMessageCallback(const OnMessageCallback& callback) {
         on_message_cb_ = callback;
@@ -263,28 +281,24 @@ class Listener : public nadjieb::utils::NonCopyable {
         return *this;
     }
 
-    bool isAlive() { return !end_listener_; }
-
     void stop() {
+        state_ = nadjieb::utils::State::TERMINATING;
         end_listener_ = true;
         if (thread_listener_.joinable()) {
             thread_listener_.join();
         }
+        state_ = nadjieb::utils::State::TERMINATED;
     }
 
     void runAsync(int port) {
+        state_ = nadjieb::utils::State::BOOTING;
         end_listener_ = false;
         thread_listener_ = std::thread(&Listener::run, this, port);
     }
 
     void run(int port) {
-        if (on_message_cb_ == nullptr) {
-            throw std::runtime_error("not setting on_message_cb");
-        }
-
-        if (on_before_close_cb_ == nullptr) {
-            throw std::runtime_error("not setting on_before_close_cb");
-        }
+        panicIfUnexpected(on_message_cb_ == nullptr, "not setting on_message_cb", false);
+        panicIfUnexpected(on_before_close_cb_ == nullptr, "not setting on_before_close_cb", false);
 
         end_listener_ = false;
 
@@ -300,13 +314,12 @@ class Listener : public nadjieb::utils::NonCopyable {
 
         std::string buff(4096, 0);
 
+        state_ = nadjieb::utils::State::RUNNING;
+
         while (!end_listener_) {
             int socket_count = ::poll(&fds_[0], fds_.size(), 100);
 
-            if (socket_count == SOCKET_ERROR) {
-                closeAll();
-                throw std::runtime_error("poll() failed");
-            }
+            panicIfUnexpected(socket_count == SOCKET_ERROR, "poll() failed", true);
 
             if (socket_count == 0) {
                 continue;
@@ -327,19 +340,13 @@ class Listener : public nadjieb::utils::NonCopyable {
                     continue;
                 }
 
-                if (fds_[i].revents != POLLIN) {
-                    closeAll();
-                    throw std::runtime_error("revents != POLLIN");
-                }
+                panicIfUnexpected(fds_[i].revents != POLLIN, "revents != POLLIN", true);
 
                 if (fds_[i].fd == listen_sd_) {
                     do {
                         auto new_socket = acceptNewSocket(listen_sd_);
                         if (new_socket < 0) {
-                            if (errno != EWOULDBLOCK) {
-                                closeAll();
-                                throw std::runtime_error("accept() failed");
-                            }
+                            panicIfUnexpected(errno != EWOULDBLOCK, "accept() failed", true);
                             break;
                         }
 
@@ -423,6 +430,15 @@ class Listener : public nadjieb::utils::NonCopyable {
 
         fds_.clear();
     }
+
+    void panicIfUnexpected(bool condition, const std::string& message, bool close_all) {
+        if (condition) {
+            if (close_all) {
+                closeAll();
+            }
+            throw std::runtime_error(message);
+        }
+    }
 };
 }  // namespace net
 }  // namespace nadjieb
@@ -433,6 +449,8 @@ class Listener : public nadjieb::utils::NonCopyable {
 // #include <nadjieb/net/socket.hpp>
 
 // #include <nadjieb/utils/non_copyable.hpp>
+
+// #include <nadjieb/utils/runnable.hpp>
 
 
 #include <algorithm>
@@ -446,19 +464,20 @@ class Listener : public nadjieb::utils::NonCopyable {
 
 namespace nadjieb {
 namespace net {
-class Publisher : public nadjieb::utils::NonCopyable {
+class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runnable {
    public:
-    bool isAlive() { return !end_publisher_; }
-
     void start(int num_workers = 1) {
+        state_ = nadjieb::utils::State::BOOTING;
         end_publisher_ = false;
         workers_.reserve(num_workers);
         for (auto i = 0; i < num_workers; ++i) {
             workers_.emplace_back(&Publisher::worker, this);
         }
+        state_ = nadjieb::utils::State::RUNNING;
     }
 
     void stop() {
+        state_ = nadjieb::utils::State::TERMINATING;
         end_publisher_ = true;
         condition_.notify_all();
 
@@ -476,6 +495,7 @@ class Publisher : public nadjieb::utils::NonCopyable {
         while (!payloads_.empty()) {
             payloads_.pop();
         }
+        state_ = nadjieb::utils::State::TERMINATED;
     }
 
     void add(const std::string& path, const SocketFD& sockfd) {
@@ -601,6 +621,10 @@ class MJPEGStreamer : public nadjieb::utils::NonCopyable {
         listener_.withOnMessageCallback(on_message_cb_)
             .withOnBeforeCloseCallback(on_before_close_cb_)
             .runAsync(port);
+
+        while (!isRunning()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
     }
 
     void stop() {
@@ -614,7 +638,7 @@ class MJPEGStreamer : public nadjieb::utils::NonCopyable {
 
     void setShutdownTarget(const std::string& target) { shutdown_target_ = target; }
 
-    bool isAlive() { return (listener_.isAlive() && publisher_.isAlive()); }
+    bool isRunning() { return (publisher_.isRunning() && listener_.isRunning()); }
 
     bool hasClient(const std::string& path) { return publisher_.hasClient(path); }
 

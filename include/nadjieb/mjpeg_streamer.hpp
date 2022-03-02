@@ -47,6 +47,10 @@ class MJPEGStreamer : public nadjieb::utils::NonCopyable {
         listener_.withOnMessageCallback(on_message_cb_)
             .withOnBeforeCloseCallback(on_before_close_cb_)
             .runAsync(port);
+
+        while (!isRunning()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
     }
 
     void stop() {
@@ -60,7 +64,7 @@ class MJPEGStreamer : public nadjieb::utils::NonCopyable {
 
     void setShutdownTarget(const std::string& target) { shutdown_target_ = target; }
 
-    bool isAlive() { return (listener_.isAlive() && publisher_.isAlive()); }
+    bool isRunning() { return (publisher_.isRunning() && listener_.isRunning()); }
 
     bool hasClient(const std::string& path) { return publisher_.hasClient(path); }
 

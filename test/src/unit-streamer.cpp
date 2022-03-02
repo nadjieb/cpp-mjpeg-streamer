@@ -15,7 +15,7 @@ TEST_SUITE("streamer") {
             nadjieb::MJPEGStreamer streamer;
 
             WHEN("The streamer initialized") {
-                THEN("The streamer is not alive yet") { CHECK(streamer.isAlive() == false); }
+                THEN("The streamer is not alive yet") { CHECK(streamer.isRunning() == false); }
             }
 
             WHEN("The streamer start at port 1234 and publish a buffer") {
@@ -23,7 +23,7 @@ TEST_SUITE("streamer") {
                 streamer.publish("/foo", "foo");
 
                 THEN("The streamer is alive but has no client for \"/foo\"") {
-                    CHECK(streamer.isAlive() == true);
+                    CHECK(streamer.isRunning() == true);
                     CHECK(streamer.hasClient("/foo") == false);
                 }
             }
@@ -31,7 +31,7 @@ TEST_SUITE("streamer") {
             WHEN("The streamer stop") {
                 streamer.stop();
 
-                THEN("The streamer is not alive") { CHECK(streamer.isAlive() == false); }
+                THEN("The streamer is not alive") { CHECK(streamer.isRunning() == false); }
             }
         }
     }
@@ -49,7 +49,7 @@ TEST_SUITE("streamer") {
             WHEN("Clients request for image stream") {
                 auto publishing = std::async(std::launch::async, [&]() {
                     streamer.start(1235);
-                    while (streamer.isAlive()) {
+                    while (streamer.isRunning()) {
                         streamer.publish("/buffer1", buffer1);
                         streamer.publish("/buffer2", buffer2);
                         std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -62,7 +62,7 @@ TEST_SUITE("streamer") {
                         std::string buff;
                         buff.assign(data, data_length);
                         received_buffer1 = buff.substr(buff.find(delimiter) + delimiter.size());
-                        return streamer.isAlive();
+                        return streamer.isRunning();
                     });
                 });
 
@@ -72,7 +72,7 @@ TEST_SUITE("streamer") {
                         std::string buff;
                         buff.assign(data, data_length);
                         received_buffer2 = buff.substr(buff.find(delimiter) + delimiter.size());
-                        return streamer.isAlive();
+                        return streamer.isRunning();
                     });
                 });
 
@@ -99,20 +99,18 @@ TEST_SUITE("streamer") {
             streamer.setShutdownTarget("/stop");
             streamer.start(1236);
 
-            CHECK(streamer.isAlive() == true);
+            CHECK(streamer.isRunning() == true);
 
             WHEN("Client request to graceful shutdown") {
                 httplib::Client cli("localhost", 1236);
 
-                std::this_thread::sleep_for(std::chrono::seconds(2));
-
                 auto res = cli.Get("/stop");
 
-                std::this_thread::sleep_for(std::chrono::seconds(2));
+                std::this_thread::sleep_for(std::chrono::seconds(1));
 
                 THEN("The streamer is not alive") {
                     CHECK(res->status == 200);
-                    CHECK(streamer.isAlive() == false);
+                    CHECK(streamer.isRunning() == false);
                 }
             }
         }
@@ -123,7 +121,7 @@ TEST_SUITE("streamer") {
             nadjieb::MJPEGStreamer streamer;
             streamer.start(1237);
 
-            CHECK(streamer.isAlive() == true);
+            CHECK(streamer.isRunning() == true);
 
             WHEN("Client request a POST") {
                 httplib::Client cli("localhost", 1237);
@@ -140,7 +138,7 @@ TEST_SUITE("streamer") {
             nadjieb::MJPEGStreamer streamer;
             auto task = std::async(std::launch::async, [&]() {
                 streamer.start(1238);
-                while (streamer.isAlive()) {
+                while (streamer.isRunning()) {
                     streamer.publish("/buffer", "buffer");
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 }
@@ -158,7 +156,7 @@ TEST_SUITE("streamer") {
 
             THEN("The streamer is still alive") {
                 CHECK(body.empty() == false);
-                CHECK(streamer.isAlive() == true);
+                CHECK(streamer.isRunning() == true);
             }
 
             streamer.stop();
