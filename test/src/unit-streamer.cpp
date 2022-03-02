@@ -36,58 +36,50 @@ TEST_SUITE("streamer") {
     }
 
     TEST_CASE("publish image stream") {
-        GIVEN("streamer and clients") {
-            nadjieb::MJPEGStreamer streamer;
-            const std::string buffer1 = "buffer1";
-            const std::string buffer2 = "buffer2";
-
-            const std::string delimiter = "\r\n\r\n";
+        GIVEN("A client ready to receive image streams") {
             std::string received_buffer1;
             std::string received_buffer2;
 
-            WHEN("Clients request for image stream") {
+            auto task = std::async(std::launch::async, [&]() {
+                const std::string delimiter = "\r\n\r\n";
+                httplib::Client cli("localhost", 1235);
+
+                auto res1 = cli.Get("/buffer1", [&](const char* data, size_t data_length) {
+                    received_buffer1.assign(data, data_length);
+                    received_buffer1 = received_buffer1.substr(
+                        received_buffer1.find(delimiter) + delimiter.size());
+                    return false;
+                });
+
+                auto res2 = cli.Get("/buffer2", [&](const char* data, size_t data_length) {
+                    received_buffer2.assign(data, data_length);
+                    received_buffer2 = received_buffer2.substr(
+                        received_buffer2.find(delimiter) + delimiter.size());
+                    return false;
+                });
+            });
+
+            WHEN("The streamer streams buffers") {
+                const std::string buffer1 = "buffer1";
+                const std::string buffer2 = "buffer2";
+
+                nadjieb::MJPEGStreamer streamer;
                 streamer.start(1235);
 
-                auto client1 = std::async(std::launch::async, [&]() {
-                    httplib::Client cli("localhost", 1235);
-                    cli.Get("/buffer1", [&](const char* data, size_t data_length) {
-                        std::string buff;
-                        buff.assign(data, data_length);
-                        received_buffer1 = buff.substr(buff.find(delimiter) + delimiter.size());
-                        return false;
-                    });
-                });
-
-                auto client2 = std::async(std::launch::async, [&]() {
-                    httplib::Client cli("localhost", 1235);
-                    cli.Get("/buffer2", [&](const char* data, size_t data_length) {
-                        std::string buff;
-                        buff.assign(data, data_length);
-                        received_buffer2 = buff.substr(buff.find(delimiter) + delimiter.size());
-                        return false;
-                    });
-                });
-
-                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-
+                std::this_thread::sleep_for(std::chrono::seconds(2));
                 streamer.publish("/buffer1", buffer1);
+                std::this_thread::sleep_for(std::chrono::seconds(2));
                 streamer.publish("/buffer2", buffer2);
 
-                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-
-                client1.wait();
-                client2.wait();
+                task.wait();
 
                 THEN("The received buffers equal to the initial buffers") {
                     CHECK(received_buffer1 == buffer1);
                     CHECK(received_buffer2 == buffer2);
                 }
-
-                streamer.stop();
             }
         }
     }
-
     TEST_CASE("Graceful Shutdown") {
         GIVEN("A streamer initialize with set shutdown target then start") {
             nadjieb::MJPEGStreamer streamer;
