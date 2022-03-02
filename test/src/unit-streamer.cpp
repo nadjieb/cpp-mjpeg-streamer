@@ -24,7 +24,6 @@ TEST_SUITE("streamer") {
 
                 THEN("The streamer is alive but has no client for \"/foo\"") {
                     CHECK(streamer.isRunning() == true);
-                    CHECK(streamer.hasClient("/foo") == false);
                 }
             }
 
@@ -47,48 +46,44 @@ TEST_SUITE("streamer") {
             std::string received_buffer2;
 
             WHEN("Clients request for image stream") {
-                auto publishing = std::async(std::launch::async, [&]() {
-                    streamer.start(1235);
-                    while (streamer.isRunning()) {
-                        streamer.publish("/buffer1", buffer1);
-                        streamer.publish("/buffer2", buffer2);
-                        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                    }
-                });
+                streamer.start(1235);
 
-                auto path1 = std::async(std::launch::async, [&]() {
-                    httplib::Client cli1("localhost", 1235);
-                    cli1.Get("/buffer1", [&](const char* data, size_t data_length) {
+                auto client1 = std::async(std::launch::async, [&]() {
+                    httplib::Client cli("localhost", 1235);
+                    cli.Get("/buffer1", [&](const char* data, size_t data_length) {
                         std::string buff;
                         buff.assign(data, data_length);
                         received_buffer1 = buff.substr(buff.find(delimiter) + delimiter.size());
-                        return streamer.isRunning();
+                        return false;
                     });
                 });
 
-                auto path2 = std::async(std::launch::async, [&]() {
-                    httplib::Client cli2("localhost", 1235);
-                    cli2.Get("/buffer2", [&](const char* data, size_t data_length) {
+                auto client2 = std::async(std::launch::async, [&]() {
+                    httplib::Client cli("localhost", 1235);
+                    cli.Get("/buffer2", [&](const char* data, size_t data_length) {
                         std::string buff;
                         buff.assign(data, data_length);
                         received_buffer2 = buff.substr(buff.find(delimiter) + delimiter.size());
-                        return streamer.isRunning();
+                        return false;
                     });
                 });
 
-                std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
+                streamer.publish("/buffer1", buffer1);
+                streamer.publish("/buffer2", buffer2);
+
+                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
+                client1.wait();
+                client2.wait();
 
                 THEN("The received buffers equal to the initial buffers") {
                     CHECK(received_buffer1 == buffer1);
                     CHECK(received_buffer2 == buffer2);
-                    CHECK(streamer.hasClient("/buffer1") == true);
-                    CHECK(streamer.hasClient("/buffer2") == true);
                 }
 
                 streamer.stop();
-                publishing.wait();
-                path1.wait();
-                path2.wait();
             }
         }
     }
@@ -106,7 +101,7 @@ TEST_SUITE("streamer") {
 
                 auto res = cli.Get("/stop");
 
-                std::this_thread::sleep_for(std::chrono::seconds(1));
+                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
                 THEN("The streamer is not alive") {
                     CHECK(res->status == 200);
