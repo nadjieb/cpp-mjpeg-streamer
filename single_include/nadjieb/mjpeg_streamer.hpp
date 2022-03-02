@@ -288,13 +288,10 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
         }
     }
 
-    void runAsync(int port) {
-        state_ = nadjieb::utils::State::BOOTING;
-        end_listener_ = false;
-        thread_listener_ = std::thread(&Listener::run, this, port);
-    }
+    void runAsync(int port) { thread_listener_ = std::thread(&Listener::run, this, port); }
 
     void run(int port) {
+        state_ = nadjieb::utils::State::BOOTING;
         panicIfUnexpected(on_message_cb_ == nullptr, "not setting on_message_cb", false);
         panicIfUnexpected(on_before_close_cb_ == nullptr, "not setting on_before_close_cb", false);
 
@@ -522,7 +519,12 @@ class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Run
             return;
         }
 
-        for (auto& sockfd : path2clients_[path]) {
+        auto it = path2clients_.find(path);
+        if (it == path2clients_.end()) {
+            return;
+        }
+
+        for (auto& sockfd : it->second) {
             std::unique_lock<std::mutex> payloads_lock(payloads_mtx_);
             payloads_.emplace(buffer, path, sockfd);
             payloads_lock.unlock();
