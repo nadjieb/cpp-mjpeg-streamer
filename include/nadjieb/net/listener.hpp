@@ -101,6 +101,8 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
                             break;
                         }
 
+                        setSocketNonblock(new_socket);
+
                         fds_.emplace_back(pollfd{new_socket, POLLIN, 0});
                     } while (true);
                 } else {
@@ -108,7 +110,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
                     bool close_conn = false;
 
                     do {
-                        auto size = readFromSocket(fds_[i].fd, &buff[0], buff.size(), MSG_DONTWAIT);
+                        auto size = readFromSocket(fds_[i].fd, &buff[0], buff.size(), 0);
                         if (size < 0) {
                             if (errno != EWOULDBLOCK) {
                                 std::cerr << "readFromSocket() failed" << std::endl;
