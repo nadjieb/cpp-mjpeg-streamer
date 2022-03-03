@@ -124,14 +124,14 @@ jobs:
           cmake \
             -S . \
             -B build \
-            -DCMAKE_BUILD_TYPE=Release \
-            -GNinja \
-            -DNADJIEB_MJPEG_STREAMER_BuildTests=On \
-            -DNADJIEB_MJPEG_STREAMER_MultipleHeaders=ON
+            -D CMAKE_BUILD_TYPE=Release \
+            -G Ninja \
+            -D NADJIEB_MJPEG_STREAMER_BuildTests=On \
+            -D NADJIEB_MJPEG_STREAMER_MultipleHeaders=ON
 
       - name: Build
         shell: bash
-        run: cmake --build build --config ${{ matrix.config.build_type }}
+        run: cmake --build build --config Release
 
       - name: Test
         run: cd build ; ctest -j 10 --output-on-failure
