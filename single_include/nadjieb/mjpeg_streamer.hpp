@@ -131,7 +131,7 @@ struct HTTPMessage {
 
 
 #ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
-#define _WIN32_WINNT 0x0600
+#define _WIN32_WINNT 0x501
 #undef UNICODE
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
