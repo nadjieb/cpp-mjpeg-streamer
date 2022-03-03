@@ -125,7 +125,7 @@ jobs:
             -S . \
             -B build \
             -DCMAKE_BUILD_TYPE=Release \
-            -G Ninja \
+            -GNinja \
             -DNADJIEB_MJPEG_STREAMER_BuildTests=On \
             -DNADJIEB_MJPEG_STREAMER_MultipleHeaders=ON
 
