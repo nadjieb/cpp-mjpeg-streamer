@@ -90,6 +90,7 @@ TEST_SUITE("streamer") {
             }
         }
     }
+
     TEST_CASE("Graceful Shutdown") {
         GIVEN("A streamer initialize with set shutdown target then start") {
             nadjieb::MJPEGStreamer streamer;
