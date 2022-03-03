@@ -15,7 +15,7 @@ TEST_SUITE("streamer") {
             nadjieb::MJPEGStreamer streamer;
 
             WHEN("The streamer initialized") {
-                THEN("The streamer is not alive yet") { CHECK(streamer.isAlive() == false); }
+                THEN("The streamer is not alive yet") { CHECK(streamer.isRunning() == false); }
             }
 
             WHEN("The streamer start at port 1234 and publish a buffer") {
@@ -23,15 +23,14 @@ TEST_SUITE("streamer") {
                 streamer.publish("/foo", "foo");
 
                 THEN("The streamer is alive but has no client for \"/foo\"") {
-                    CHECK(streamer.isAlive() == true);
-                    CHECK(streamer.hasClient("/foo") == false);
+                    CHECK(streamer.isRunning() == true);
                 }
             }
 
             WHEN("The streamer stop") {
                 streamer.stop();
 
-                THEN("The streamer is not alive") { CHECK(streamer.isAlive() == false); }
+                THEN("The streamer is not alive") { CHECK(streamer.isRunning() == false); }
             }
         }
     }
@@ -40,10 +39,18 @@ TEST_SUITE("streamer") {
         GIVEN("A client ready to receive image streams") {
             std::string received_buffer1;
             std::string received_buffer2;
+            bool ready = false;
+
+            nadjieb::MJPEGStreamer streamer;
+            streamer.start(1235);
 
             auto task = std::async(std::launch::async, [&]() {
                 const std::string delimiter = "\r\n\r\n";
                 httplib::Client cli("localhost", 1235);
+
+                while (!ready) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                }
 
                 auto res1 = cli.Get("/buffer1", [&](const char* data, size_t data_length) {
                     received_buffer1.assign(data, data_length);
@@ -58,27 +65,27 @@ TEST_SUITE("streamer") {
                         received_buffer2.find(delimiter) + delimiter.size());
                     return false;
                 });
+
+                streamer.stop();
             });
 
             WHEN("The streamer streams buffers") {
                 const std::string buffer1 = "buffer1";
                 const std::string buffer2 = "buffer2";
 
-                nadjieb::MJPEGStreamer streamer;
-                streamer.start(1235);
+                ready = true;
 
-                std::this_thread::sleep_for(std::chrono::seconds(2));
-                streamer.publish("/buffer1", buffer1);
-                std::this_thread::sleep_for(std::chrono::seconds(2));
-                streamer.publish("/buffer2", buffer2);
+                while (streamer.isRunning()) {
+                    streamer.publish("/buffer1", buffer1);
+                    streamer.publish("/buffer2", buffer2);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                }
 
                 task.wait();
 
                 THEN("The received buffers equal to the initial buffers") {
                     CHECK(received_buffer1 == buffer1);
                     CHECK(received_buffer2 == buffer2);
-                    CHECK(streamer.hasClient("/buffer1") == true);
-                    CHECK(streamer.hasClient("/buffer2") == true);
                 }
             }
         }
@@ -90,18 +97,20 @@ TEST_SUITE("streamer") {
             streamer.setShutdownTarget("/stop");
             streamer.start(1236);
 
-            CHECK(streamer.isAlive() == true);
+            CHECK(streamer.isRunning() == true);
 
             WHEN("Client request to graceful shutdown") {
                 httplib::Client cli("localhost", 1236);
 
                 auto res = cli.Get("/stop");
 
-                std::this_thread::sleep_for(std::chrono::seconds(2));
+                while (streamer.isRunning()) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                }
 
                 THEN("The streamer is not alive") {
                     CHECK(res->status == 200);
-                    CHECK(streamer.isAlive() == false);
+                    CHECK(streamer.isRunning() == false);
                 }
             }
         }
@@ -112,7 +121,7 @@ TEST_SUITE("streamer") {
             nadjieb::MJPEGStreamer streamer;
             streamer.start(1237);
 
-            CHECK(streamer.isAlive() == true);
+            CHECK(streamer.isRunning() == true);
 
             WHEN("Client request a POST") {
                 httplib::Client cli("localhost", 1237);
@@ -127,14 +136,20 @@ TEST_SUITE("streamer") {
     TEST_CASE("Client disconnect when streamer publish buffer") {
         WHEN("A client request image stream and disconnect it") {
             nadjieb::MJPEGStreamer streamer;
+            streamer.start(1238);
+
+            bool ready = false;
             auto task = std::async(std::launch::async, [&]() {
-                streamer.start(1238);
-                while (streamer.isAlive()) {
+                while (streamer.isRunning()) {
                     streamer.publish("/buffer", "buffer");
+                    ready = true;
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 }
             });
 
-            std::this_thread::sleep_for(std::chrono::seconds(2));
+            while (!ready) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
 
             httplib::Client cli("localhost", 1238);
 
@@ -146,7 +161,7 @@ TEST_SUITE("streamer") {
 
             THEN("The streamer is still alive") {
                 CHECK(body.empty() == false);
-                CHECK(streamer.isAlive() == true);
+                CHECK(streamer.isRunning() == true);
             }
 
             streamer.stop();
@@ -154,40 +169,44 @@ TEST_SUITE("streamer") {
         }
     }
 
-    TEST_CASE("Panic If Unexpected") {
-        GIVEN("A streamer initialized") {
+    TEST_CASE("Streamer hasClient") {
+        GIVEN("A streamer publishing message to a path") {
             nadjieb::MJPEGStreamer streamer;
 
-            WHEN("The streamer start") {
-                THEN("It will throw exception") {
-                    CHECK_THROWS_WITH(streamer.start(1234), "ERROR: bind\n");
+            streamer.start(1239);
+
+            auto publisher = std::async(std::launch::async, [&]() {
+                while (streamer.isRunning()) {
+                    streamer.publish("/buffer", "buffer");
                 }
+                streamer.publish("/buffer", "buffer");
+            });
+
+            WHEN("No client connected") {
+                THEN("/buffer has no client") { CHECK(streamer.hasClient("/buffer") == false); }
             }
-        }
-    }
 
-    TEST_CASE("Read Buffer") {
-        GIVEN("An invalid buffer initialized") {
-            void* buf = nullptr;
+            httplib::Client cli("localhost", 1239);
+            bool ready = false;
 
-            WHEN("Read buffer") {
-                THEN("It will throw exception") {
-                    CHECK_THROWS_WITH(nadjieb::MJPEGStreamer::readBuff(1, buf, 1), "ERROR: read\n");
+            auto client = std::async(std::launch::async, [&]() {
+                auto res = cli.Get("/buffer", [&](const char* data, size_t data_length) {
+                    ready = true;
+                    return streamer.isRunning();
+                });
+            });
+
+            WHEN("There is a client connected") {
+                while (!ready) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 }
-            }
-        }
-    }
 
-    TEST_CASE("Write Buffer") {
-        GIVEN("An invalid buffer initialized") {
-            void* buf = nullptr;
-
-            WHEN("Write buffer") {
-                THEN("It will throw exception") {
-                    CHECK_THROWS_WITH(
-                        nadjieb::MJPEGStreamer::writeBuff(1, buf, 1), "ERROR: write\n");
-                }
+                THEN("/buffer has client") { CHECK(streamer.hasClient("/buffer") == true); }
             }
+
+            streamer.stop();
+            client.wait();
+            publisher.wait();
         }
     }
 }

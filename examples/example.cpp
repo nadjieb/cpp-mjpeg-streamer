@@ -26,7 +26,7 @@ int main() {
     streamer.start(8080);
 
     // Visit /shutdown or another defined target to stop the loop and graceful shutdown
-    while (streamer.isAlive()) {
+    while (streamer.isRunning()) {
         cv::Mat frame;
         cap >> frame;
         if (frame.empty()) {
@@ -46,6 +46,8 @@ int main() {
         std::vector<uchar> buff_hsv;
         cv::imencode(".jpg", hsv, buff_hsv, params);
         streamer.publish("/hsv", std::string(buff_hsv.begin(), buff_hsv.end()));
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
     streamer.stop();

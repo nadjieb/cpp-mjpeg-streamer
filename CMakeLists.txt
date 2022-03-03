@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.1)
 ## PROJECT
 ## name and version
 ##
-project(nadjieb_mjpeg_streamer VERSION 2.0.0 LANGUAGES CXX)
+project(nadjieb_mjpeg_streamer VERSION 3.0.0 LANGUAGES CXX)
 
 ##
 ## DEPENDENCIES
@@ -44,7 +44,7 @@ set(NADJIEB_MJPEG_STREAMER_VERSION_HEADER_TEMPLATE      "${PROJECT_SOURCE_DIR}/c
 if (NADJIEB_MJPEG_STREAMER_MultipleHeaders)
     set(NADJIEB_MJPEG_STREAMER_INCLUDE_BUILD_DIR "${PROJECT_SOURCE_DIR}/include/")
     message(STATUS "Using the multi-header code from ${NADJIEB_MJPEG_STREAMER_INCLUDE_BUILD_DIR}")
-    configure_file(${NADJIEB_MJPEG_STREAMER_VERSION_HEADER_TEMPLATE} "${NADJIEB_MJPEG_STREAMER_INCLUDE_BUILD_DIR}/nadjieb/detail/version.hpp")
+    configure_file(${NADJIEB_MJPEG_STREAMER_VERSION_HEADER_TEMPLATE} "${NADJIEB_MJPEG_STREAMER_INCLUDE_BUILD_DIR}/nadjieb/utils/version.hpp")
 else()
     set(NADJIEB_MJPEG_STREAMER_INCLUDE_BUILD_DIR "${PROJECT_SOURCE_DIR}/single_include/")
     message(STATUS "Using the single-header code from ${NADJIEB_MJPEG_STREAMER_INCLUDE_BUILD_DIR}")
