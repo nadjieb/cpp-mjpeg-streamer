@@ -510,9 +510,11 @@ class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Run
         const std::lock_guard<std::mutex> lock(p2c_mtx_);
         for (auto& p2c : path2clients_) {
             auto& clients = p2c.second;
-            if (std::find(clients.begin(), clients.end(), sockfd) != clients.end()) {
-                clients.erase(std::remove(clients.begin(), clients.end(), sockfd), clients.end());
-            }
+            clients.erase(
+                std::remove_if(
+                    clients.begin(), clients.end(),
+                    [&](const SocketFD& sfd) { return sfd == sockfd; }),
+                clients.end());
         }
     }
 
