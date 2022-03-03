@@ -5,11 +5,12 @@
 [![Coverage Status](https://coveralls.io/repos/github/nadjieb/cpp-mjpeg-streamer/badge.svg?branch=master)](https://coveralls.io/github/nadjieb/cpp-mjpeg-streamer?branch=master)
 
 ## Features
-* No OpenCV dependencies (Clear problems separation)
+* No external dependencies (Only using C++ standard libraries)
 * Set different streams depending on HTTP GET path
 * Multi-threaded streaming
 * Single Header-only library
 * Graceful shutdown
+* Suitable for scientists and hobbyists to visualize their computer vision project
 
 ## CMake Integration
 ### External
@@ -42,11 +43,9 @@ target_link_libraries(foo PRIVATE nadjieb_mjpeg_streamer::nadjieb_mjpeg_streamer
 // for convenience
 using MJPEGStreamer = nadjieb::MJPEGStreamer;
 
-int main()
-{
+int main() {
     cv::VideoCapture cap(0);
-    if (!cap.isOpened())
-    {
+    if (!cap.isOpened()) {
         std::cerr << "VideoCapture not opened\n";
         exit(EXIT_FAILURE);
     }
@@ -65,12 +64,10 @@ int main()
     streamer.start(8080);
 
     // Visit /shutdown or another defined target to stop the loop and graceful shutdown
-    while (streamer.isAlive())
-    {
+    while (streamer.isRunning()) {
         cv::Mat frame;
         cap >> frame;
-        if (frame.empty())
-        {
+        if (frame.empty()) {
             std::cerr << "frame not grabbed\n";
             exit(EXIT_FAILURE);
         }
@@ -87,6 +84,8 @@ int main()
         std::vector<uchar> buff_hsv;
         cv::imencode(".jpg", hsv, buff_hsv, params);
         streamer.publish("/hsv", std::string(buff_hsv.begin(), buff_hsv.end()));
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
     streamer.stop();
