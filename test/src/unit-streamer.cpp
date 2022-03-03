@@ -104,7 +104,9 @@ TEST_SUITE("streamer") {
 
                 auto res = cli.Get("/stop");
 
-                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                while (streamer.isRunning()) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                }
 
                 THEN("The streamer is not alive") {
                     CHECK(res->status == 200);
@@ -134,15 +136,20 @@ TEST_SUITE("streamer") {
     TEST_CASE("Client disconnect when streamer publish buffer") {
         WHEN("A client request image stream and disconnect it") {
             nadjieb::MJPEGStreamer streamer;
+            streamer.start(1238);
+
+            bool ready = false;
             auto task = std::async(std::launch::async, [&]() {
-                streamer.start(1238);
                 while (streamer.isRunning()) {
                     streamer.publish("/buffer", "buffer");
+                    ready = true;
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 }
             });
 
-            std::this_thread::sleep_for(std::chrono::seconds(2));
+            while (!ready) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
 
             httplib::Client cli("localhost", 1238);
 
@@ -159,6 +166,47 @@ TEST_SUITE("streamer") {
 
             streamer.stop();
             task.wait();
+        }
+    }
+
+    TEST_CASE("Streamer hasClient") {
+        GIVEN("A streamer publishing message to a path") {
+            nadjieb::MJPEGStreamer streamer;
+
+            streamer.start(1239);
+
+            auto publisher = std::async(std::launch::async, [&]() {
+                while (streamer.isRunning()) {
+                    streamer.publish("/buffer", "buffer");
+                }
+                streamer.publish("/buffer", "buffer");
+            });
+
+            WHEN("No client connected") {
+                THEN("/buffer has no client") { CHECK(streamer.hasClient("/buffer") == false); }
+            }
+
+            httplib::Client cli("localhost", 1239);
+            bool ready = false;
+
+            auto client = std::async(std::launch::async, [&]() {
+                auto res = cli.Get("/buffer", [&](const char* data, size_t data_length) {
+                    ready = true;
+                    return streamer.isRunning();
+                });
+            });
+
+            WHEN("There is a client connected") {
+                while (!ready) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                }
+
+                THEN("/buffer has client") { CHECK(streamer.hasClient("/buffer") == true); }
+            }
+
+            streamer.stop();
+            client.wait();
+            publisher.wait();
         }
     }
 }
