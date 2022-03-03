@@ -7,7 +7,9 @@
 #include <windows.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
+
 #pragma comment(lib, "Ws2_32.lib")
+
 #include <WinError.h>
 #include <errno.h>
 #elif defined NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX

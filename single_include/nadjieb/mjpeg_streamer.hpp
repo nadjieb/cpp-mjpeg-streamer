@@ -123,7 +123,6 @@ struct HTTPMessage {
 
 #if defined _MSC_VER || defined __MINGW32__
 #define NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
-#pragma comment(lib, "ws2_32")
 #elif defined __APPLE_CC__ || defined __APPLE__
 #define NADJIEB_MJPEG_STREAMER_PLATFORM_DARWIN
 #else
@@ -136,7 +135,9 @@ struct HTTPMessage {
 #include <windows.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
+
 #pragma comment(lib, "Ws2_32.lib")
+
 #include <WinError.h>
 #include <errno.h>
 #elif defined NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX
