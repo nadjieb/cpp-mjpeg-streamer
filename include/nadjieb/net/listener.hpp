@@ -5,7 +5,6 @@
 #include <nadjieb/utils/runnable.hpp>
 
 #include <errno.h>
-#include <poll.h>
 
 #include <functional>
 #include <iostream>
@@ -21,8 +20,7 @@ struct OnMessageCallbackResponse {
     bool end_listener = false;
 };
 
-using OnMessageCallback
-    = std::function<OnMessageCallbackResponse(const SocketFD&, const std::string&)>;
+using OnMessageCallback = std::function<OnMessageCallbackResponse(const SocketFD&, const std::string&)>;
 using OnBeforeCloseCallback = std::function<void(const SocketFD&)>;
 
 class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runnable {
@@ -68,9 +66,9 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
         state_ = nadjieb::utils::State::RUNNING;
 
         while (!end_listener_) {
-            int socket_count = ::poll(&fds_[0], fds_.size(), 100);
+            int socket_count = pollSockets(&fds_[0], fds_.size(), 100);
 
-            panicIfUnexpected(socket_count == SOCKET_ERROR, "poll() failed", true);
+            panicIfUnexpected(socket_count == SOCKET_ERROR, "pollSockets() failed", true);
 
             if (socket_count == 0) {
                 continue;
@@ -183,6 +181,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
         }
 
         fds_.clear();
+        destroySocket();
         state_ = nadjieb::utils::State::TERMINATED;
     }
 

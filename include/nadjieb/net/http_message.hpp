@@ -36,8 +36,7 @@ struct HTTPMessage {
         start_line = message.substr(0, message.find(delimiter));
 
         auto raw_headers = message.substr(
-            message.find(delimiter) + delimiter.size(),
-            message.find(body_delimiter) - message.find(delimiter));
+            message.find(delimiter) + delimiter.size(), message.find(body_delimiter) - message.find(delimiter));
 
         while (raw_headers.find(delimiter) != std::string::npos) {
             auto header = raw_headers.substr(0, raw_headers.find(delimiter));

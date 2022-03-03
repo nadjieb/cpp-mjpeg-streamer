@@ -1,10 +1,28 @@
 #pragma once
 
+#include <nadjieb/utils/platform.hpp>
+
+#ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
+#define WIN32_LEAN_AND_MEAN
+#include <WinError.h>
+#include <Ws2tcpip.h>
+#include <errno.h>
+#include <winsock.h>
+#include <winsock2.h>
+#elif defined NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX
 #include <arpa/inet.h>
 #include <signal.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#elif defined NADJIEB_MJPEG_STREAMER_PLATFORM_DARWIN
+#include <arpa/inet.h>
+#include <poll.h>
+#include <signal.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#endif
 
 #include <stdexcept>
 
@@ -16,12 +34,36 @@ typedef int SocketFD;
 const int SOCKET_ERROR = -1;
 
 static bool initSocket() {
+    bool ret = true;
+#ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
+    static WSADATA g_WSAData;
+    static bool WinSockIsInit = false;
+    if (WinSockIsInit) {
+        return true;
+    }
+    if (WSAStartup(MAKEWORD(2, 2), &g_WSAData) == 0) {
+        WinSockIsInit = true;
+    } else {
+        ret = false;
+    }
+#elif defined NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX || defined NADJIEB_MJPEG_STREAMER_PLATFORM_DARWIN
     signal(SIGPIPE, SIG_IGN);
+#endif
     return true;
 }
 
+static void destroySocket() {
+#ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
+    WSACleanup();
+#endif
+}
+
 static void closeSocket(SocketFD sockfd) {
+#ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
+    ::closesocket(sockfd);
+#else
     ::close(sockfd);
+#endif
 }
 
 static void panicIfUnexpected(bool condition, const std::string& message, const SocketFD sockfd) {
@@ -47,16 +89,22 @@ static void setSocketReuseAddress(SocketFD sockfd) {
 }
 
 static void setSocketReusePort(SocketFD sockfd) {
+#if defined NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX || defined NADJIEB_MJPEG_STREAMER_PLATFORM_DARWIN
     const int enable = 1;
     auto res = ::setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(enable));
 
     panicIfUnexpected(res == SOCKET_ERROR, "setSocketReusePort() failed", sockfd);
+#endif
 }
 
 static void setSocketNonblock(SocketFD sockfd) {
     unsigned long ul = true;
-    auto res = ioctl(sockfd, FIONBIO, &ul);
-
+    int res;
+#ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
+    res = ioctlsocket(sockfd, FIONBIO, &ul);
+#else
+    res = ioctl(sockfd, FIONBIO, &ul);
+#endif
     panicIfUnexpected(res == SOCKET_ERROR, "setSocketNonblock() failed", sockfd);
 }
 
@@ -87,6 +135,14 @@ static int readFromSocket(int socket, void* buffer, size_t length, int flags) {
 
 static int sendViaSocket(int socket, const void* buffer, size_t length, int flags) {
     return ::send(socket, buffer, length, flags);
+}
+
+static int pollSockets(struct pollfd* fds, nfds_t nfds, int timeout) {
+#ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
+    return WSAPoll(&fds[0], nfds, timeout);
+#elif defined NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX || defined NADJIEB_MJPEG_STREAMER_PLATFORM_DARWIN
+    return poll(fds, nfds, timeout);
+#endif
 }
 }  // namespace net
 }  // namespace nadjieb

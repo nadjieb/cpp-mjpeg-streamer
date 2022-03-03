@@ -63,9 +63,7 @@ class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Run
         for (auto& p2c : path2clients_) {
             auto& clients = p2c.second;
             clients.erase(
-                std::remove_if(
-                    clients.begin(), clients.end(),
-                    [&](const SocketFD& sfd) { return sfd == sockfd; }),
+                std::remove_if(clients.begin(), clients.end(), [&](const SocketFD& sfd) { return sfd == sockfd; }),
                 clients.end());
         }
     }
@@ -99,8 +97,7 @@ class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Run
         std::string path;
         SocketFD sockfd;
 
-        Payload(const std::string& b, const std::string& p, const SocketFD& s)
-            : buffer(b), path(p), sockfd(s) {}
+        Payload(const std::string& b, const std::string& p, const SocketFD& s) : buffer(b), path(p), sockfd(s) {}
     };
 
     std::condition_variable condition_;
@@ -141,10 +138,10 @@ class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Run
             psd.fd = payload.sockfd;
             psd.events = POLLOUT;
 
-            auto socket_count = ::poll(&psd, 1, 1);
+            auto socket_count = pollSockets(&psd, 1, 1);
 
             if (socket_count == SOCKET_ERROR) {
-                throw std::runtime_error("poll() failed\n");
+                throw std::runtime_error("pollSockets() failed\n");
             }
 
             if (socket_count == 0) {

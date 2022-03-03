@@ -85,8 +85,7 @@ struct HTTPMessage {
         start_line = message.substr(0, message.find(delimiter));
 
         auto raw_headers = message.substr(
-            message.find(delimiter) + delimiter.size(),
-            message.find(body_delimiter) - message.find(delimiter));
+            message.find(delimiter) + delimiter.size(), message.find(body_delimiter) - message.find(delimiter));
 
         while (raw_headers.find(delimiter) != std::string::npos) {
             auto header = raw_headers.substr(0, raw_headers.find(delimiter));
@@ -119,11 +118,40 @@ struct HTTPMessage {
 // #include <nadjieb/net/socket.hpp>
 
 
+// #include <nadjieb/utils/platform.hpp>
+
+
+#if defined _MSC_VER || defined __MINGW32__
+#define NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
+#pragma comment(lib, "ws2_32")
+#elif defined __APPLE_CC__ || defined __APPLE__
+#define NADJIEB_MJPEG_STREAMER_PLATFORM_DARWIN
+#else
+#define NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX
+#endif
+
+
+#ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
+#define WIN32_LEAN_AND_MEAN
+#include <WinError.h>
+#include <Ws2tcpip.h>
+#include <errno.h>
+#include <winsock.h>
+#include <winsock2.h>
+#elif defined NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX
 #include <arpa/inet.h>
 #include <signal.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#elif defined NADJIEB_MJPEG_STREAMER_PLATFORM_DARWIN
+#include <arpa/inet.h>
+#include <poll.h>
+#include <signal.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#endif
 
 #include <stdexcept>
 
@@ -135,12 +163,36 @@ typedef int SocketFD;
 const int SOCKET_ERROR = -1;
 
 static bool initSocket() {
+    bool ret = true;
+#ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
+    static WSADATA g_WSAData;
+    static bool WinSockIsInit = false;
+    if (WinSockIsInit) {
+        return true;
+    }
+    if (WSAStartup(MAKEWORD(2, 2), &g_WSAData) == 0) {
+        WinSockIsInit = true;
+    } else {
+        ret = false;
+    }
+#elif defined NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX || defined NADJIEB_MJPEG_STREAMER_PLATFORM_DARWIN
     signal(SIGPIPE, SIG_IGN);
+#endif
     return true;
 }
 
+static void destroySocket() {
+#ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
+    WSACleanup();
+#endif
+}
+
 static void closeSocket(SocketFD sockfd) {
+#ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
+    ::closesocket(sockfd);
+#else
     ::close(sockfd);
+#endif
 }
 
 static void panicIfUnexpected(bool condition, const std::string& message, const SocketFD sockfd) {
@@ -166,16 +218,22 @@ static void setSocketReuseAddress(SocketFD sockfd) {
 }
 
 static void setSocketReusePort(SocketFD sockfd) {
+#if defined NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX || defined NADJIEB_MJPEG_STREAMER_PLATFORM_DARWIN
     const int enable = 1;
     auto res = ::setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(enable));
 
     panicIfUnexpected(res == SOCKET_ERROR, "setSocketReusePort() failed", sockfd);
+#endif
 }
 
 static void setSocketNonblock(SocketFD sockfd) {
     unsigned long ul = true;
-    auto res = ioctl(sockfd, FIONBIO, &ul);
-
+    int res;
+#ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
+    res = ioctlsocket(sockfd, FIONBIO, &ul);
+#else
+    res = ioctl(sockfd, FIONBIO, &ul);
+#endif
     panicIfUnexpected(res == SOCKET_ERROR, "setSocketNonblock() failed", sockfd);
 }
 
@@ -206,6 +264,14 @@ static int readFromSocket(int socket, void* buffer, size_t length, int flags) {
 
 static int sendViaSocket(int socket, const void* buffer, size_t length, int flags) {
     return ::send(socket, buffer, length, flags);
+}
+
+static int pollSockets(struct pollfd* fds, nfds_t nfds, int timeout) {
+#ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
+    return WSAPoll(&fds[0], nfds, timeout);
+#elif defined NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX || defined NADJIEB_MJPEG_STREAMER_PLATFORM_DARWIN
+    return poll(fds, nfds, timeout);
+#endif
 }
 }  // namespace net
 }  // namespace nadjieb
@@ -249,7 +315,6 @@ class Runnable {
 
 
 #include <errno.h>
-#include <poll.h>
 
 #include <functional>
 #include <iostream>
@@ -265,8 +330,7 @@ struct OnMessageCallbackResponse {
     bool end_listener = false;
 };
 
-using OnMessageCallback
-    = std::function<OnMessageCallbackResponse(const SocketFD&, const std::string&)>;
+using OnMessageCallback = std::function<OnMessageCallbackResponse(const SocketFD&, const std::string&)>;
 using OnBeforeCloseCallback = std::function<void(const SocketFD&)>;
 
 class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runnable {
@@ -312,9 +376,9 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
         state_ = nadjieb::utils::State::RUNNING;
 
         while (!end_listener_) {
-            int socket_count = ::poll(&fds_[0], fds_.size(), 100);
+            int socket_count = pollSockets(&fds_[0], fds_.size(), 100);
 
-            panicIfUnexpected(socket_count == SOCKET_ERROR, "poll() failed", true);
+            panicIfUnexpected(socket_count == SOCKET_ERROR, "pollSockets() failed", true);
 
             if (socket_count == 0) {
                 continue;
@@ -427,6 +491,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
         }
 
         fds_.clear();
+        destroySocket();
         state_ = nadjieb::utils::State::TERMINATED;
     }
 
@@ -511,9 +576,7 @@ class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Run
         for (auto& p2c : path2clients_) {
             auto& clients = p2c.second;
             clients.erase(
-                std::remove_if(
-                    clients.begin(), clients.end(),
-                    [&](const SocketFD& sfd) { return sfd == sockfd; }),
+                std::remove_if(clients.begin(), clients.end(), [&](const SocketFD& sfd) { return sfd == sockfd; }),
                 clients.end());
         }
     }
@@ -547,8 +610,7 @@ class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Run
         std::string path;
         SocketFD sockfd;
 
-        Payload(const std::string& b, const std::string& p, const SocketFD& s)
-            : buffer(b), path(p), sockfd(s) {}
+        Payload(const std::string& b, const std::string& p, const SocketFD& s) : buffer(b), path(p), sockfd(s) {}
     };
 
     std::condition_variable condition_;
@@ -589,10 +651,10 @@ class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Run
             psd.fd = payload.sockfd;
             psd.events = POLLOUT;
 
-            auto socket_count = ::poll(&psd, 1, 1);
+            auto socket_count = pollSockets(&psd, 1, 1);
 
             if (socket_count == SOCKET_ERROR) {
-                throw std::runtime_error("poll() failed\n");
+                throw std::runtime_error("pollSockets() failed\n");
             }
 
             if (socket_count == 0) {

@@ -7,6 +7,15 @@ cmake_minimum_required(VERSION 3.1)
 project(nadjieb_mjpeg_streamer VERSION 3.0.0 LANGUAGES CXX)
 
 ##
+## MAIN_PROJECT CHECK
+## determine if nadjieb_mjpeg_streamer is built as a subproject (using add_subdirectory) or if it is the main project
+##
+set(MAIN_PROJECT OFF)
+if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
+    set(MAIN_PROJECT ON)
+endif()
+
+##
 ## DEPENDENCIES
 ##
 ##
@@ -21,8 +30,8 @@ if (POLICY CMP0077)
     cmake_policy(SET CMP0077 NEW)
 endif ()
 
-option(NADJIEB_MJPEG_STREAMER_BuildTests "Build the unit tests when BUILD_TESTING is enabled." ON)
-option(NADJIEB_MJPEG_STREAMER_Install "Install CMake targets during install step." ON)
+option(NADJIEB_MJPEG_STREAMER_BuildTests "Build the unit tests when BUILD_TESTING is enabled." ${MAIN_PROJECT})
+option(NADJIEB_MJPEG_STREAMER_Install "Install CMake targets during install step." ${MAIN_PROJECT})
 option(NADJIEB_MJPEG_STREAMER_MultipleHeaders "Use non-amalgamated version of the library." OFF)
 
 ##
