@@ -68,7 +68,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
         while (!end_listener_) {
             int socket_count = pollSockets(&fds_[0], fds_.size(), 100);
 
-            panicIfUnexpected(socket_count == SOCKET_ERROR, "pollSockets() failed", true);
+            panicIfUnexpected(socket_count == NADJIEB_MJPEG_STREAMER_SOCKET_ERROR, "pollSockets() failed", true);
 
             if (socket_count == 0) {
                 continue;
@@ -95,7 +95,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
                     do {
                         auto new_socket = acceptNewSocket(listen_sd_);
                         if (new_socket < 0) {
-                            panicIfUnexpected(errno != EWOULDBLOCK, "accept() failed", true);
+                            panicIfUnexpected(errno != NADJIEB_MJPEG_STREAMER_EWOULDBLOCK, "accept() failed", true);
                             break;
                         }
 
@@ -110,7 +110,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
                     do {
                         auto size = readFromSocket(fds_[i].fd, &buff[0], buff.size(), 0);
                         if (size < 0) {
-                            if (errno != EWOULDBLOCK) {
+                            if (errno != NADJIEB_MJPEG_STREAMER_EWOULDBLOCK) {
                                 std::cerr << "readFromSocket() failed" << std::endl;
                                 close_conn = true;
                             }
@@ -154,7 +154,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
     }
 
    private:
-    SocketFD listen_sd_ = SOCKET_ERROR;
+    SocketFD listen_sd_ = NADJIEB_MJPEG_STREAMER_SOCKET_ERROR;
     bool end_listener_ = true;
     std::vector<struct pollfd> fds_;
     OnMessageCallback on_message_cb_;
@@ -163,7 +163,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
 
     void compress() {
         for (auto it = fds_.begin(); it != fds_.end();) {
-            if ((*it).fd == SOCKET_ERROR) {
+            if ((*it).fd == NADJIEB_MJPEG_STREAMER_SOCKET_ERROR) {
                 it = fds_.erase(it);
             } else {
                 ++it;

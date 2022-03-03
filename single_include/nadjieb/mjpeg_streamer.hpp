@@ -152,6 +152,8 @@ struct HTTPMessage {
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#else
+#error "Unsupported OS, please commit an issue."
 #endif
 
 #include <stdexcept>
@@ -159,9 +161,26 @@ struct HTTPMessage {
 namespace nadjieb {
 namespace net {
 
-typedef int SocketFD;
+#ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
+typedef SOCKET SocketFD;
+#define NADJIEB_MJPEG_STREAMER_ERRNO WSAGetLastError()
+#define NADJIEB_MJPEG_STREAMER_ENOTSOCK WSAENOTSOCK
+#define NADJIEB_MJPEG_STREAMER_EWOULDBLOCK WSAEWOULDBLOCK
+#define NADJIEB_MJPEG_STREAMER_EINTR WSAEINTR
+#define NADJIEB_MJPEG_STREAMER_ECONNABORTED WSAECONNABORTED
+#define NADJIEB_MJPEG_STREAMER_SOCKET_ERROR SOCKET_ERROR
+#define NADJIEB_MJPEG_STREAMER_INVALID_SOCKET INVALID_SOCKET
 
-const int SOCKET_ERROR = -1;
+#elif defined NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX || defined NADJIEB_MJPEG_STREAMER_PLATFORM_DARWIN
+#define NADJIEB_MJPEG_STREAMER_ERRNO errno
+#define NADJIEB_MJPEG_STREAMER_ENOTSOCK EBADF
+#define NADJIEB_MJPEG_STREAMER_EWOULDBLOCK EAGAIN
+#define NADJIEB_MJPEG_STREAMER_EINTR EINTR
+#define NADJIEB_MJPEG_STREAMER_ECONNABORTED ECONNABORTED
+typedef int SocketFD;
+#define NADJIEB_MJPEG_STREAMER_SOCKET_ERROR (-1)
+#define NADJIEB_MJPEG_STREAMER_INVALID_SOCKET (-1)
+#endif
 
 static bool initSocket() {
     bool ret = true;
@@ -206,7 +225,7 @@ static void panicIfUnexpected(bool condition, const std::string& message, const 
 static SocketFD createSocket(int af, int type, int protocol) {
     SocketFD sockfd = ::socket(af, type, protocol);
 
-    panicIfUnexpected(sockfd == SOCKET_ERROR, "createSocket() failed", sockfd);
+    panicIfUnexpected(sockfd == NADJIEB_MJPEG_STREAMER_SOCKET_ERROR, "createSocket() failed", sockfd);
 
     return sockfd;
 }
@@ -215,7 +234,7 @@ static void setSocketReuseAddress(SocketFD sockfd) {
     const int enable = 1;
     auto res = ::setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (const char*)&enable, sizeof(int));
 
-    panicIfUnexpected(res == SOCKET_ERROR, "setSocketReuseAddress() failed", sockfd);
+    panicIfUnexpected(res == NADJIEB_MJPEG_STREAMER_SOCKET_ERROR, "setSocketReuseAddress() failed", sockfd);
 }
 
 static void setSocketReusePort(SocketFD sockfd) {
@@ -223,7 +242,7 @@ static void setSocketReusePort(SocketFD sockfd) {
     const int enable = 1;
     auto res = ::setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(enable));
 
-    panicIfUnexpected(res == SOCKET_ERROR, "setSocketReusePort() failed", sockfd);
+    panicIfUnexpected(res == NADJIEB_MJPEG_STREAMER_SOCKET_ERROR, "setSocketReusePort() failed", sockfd);
 #endif
 }
 
@@ -235,7 +254,7 @@ static void setSocketNonblock(SocketFD sockfd) {
 #else
     res = ioctl(sockfd, FIONBIO, &ul);
 #endif
-    panicIfUnexpected(res == SOCKET_ERROR, "setSocketNonblock() failed", sockfd);
+    panicIfUnexpected(res == NADJIEB_MJPEG_STREAMER_SOCKET_ERROR, "setSocketNonblock() failed", sockfd);
 }
 
 static void bindSocket(SocketFD sockfd, const char* ip, int port) {
@@ -247,12 +266,12 @@ static void bindSocket(SocketFD sockfd, const char* ip, int port) {
     panicIfUnexpected(res <= 0, "inet_pton() failed", sockfd);
 
     res = ::bind(sockfd, (struct sockaddr*)&ip_addr, sizeof(ip_addr));
-    panicIfUnexpected(res == SOCKET_ERROR, "bindSocket() failed", sockfd);
+    panicIfUnexpected(res == NADJIEB_MJPEG_STREAMER_SOCKET_ERROR, "bindSocket() failed", sockfd);
 }
 
 static void listenOnSocket(SocketFD sockfd, int backlog) {
     auto res = ::listen(sockfd, backlog);
-    panicIfUnexpected(res == SOCKET_ERROR, "listenOnSocket() failed", sockfd);
+    panicIfUnexpected(res == NADJIEB_MJPEG_STREAMER_SOCKET_ERROR, "listenOnSocket() failed", sockfd);
 }
 
 static SocketFD acceptNewSocket(SocketFD sockfd) {
@@ -267,7 +286,7 @@ static int sendViaSocket(int socket, const void* buffer, size_t length, int flag
     return ::send(socket, buffer, length, flags);
 }
 
-static int pollSockets(struct pollfd* fds, int nfds, int timeout) {
+static int pollSockets(struct pollfd* fds, int nfds, long timeout) {
 #ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
     return WSAPoll(&fds[0], nfds, timeout);
 #elif defined NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX || defined NADJIEB_MJPEG_STREAMER_PLATFORM_DARWIN
@@ -379,7 +398,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
         while (!end_listener_) {
             int socket_count = pollSockets(&fds_[0], fds_.size(), 100);
 
-            panicIfUnexpected(socket_count == SOCKET_ERROR, "pollSockets() failed", true);
+            panicIfUnexpected(socket_count == NADJIEB_MJPEG_STREAMER_SOCKET_ERROR, "pollSockets() failed", true);
 
             if (socket_count == 0) {
                 continue;
@@ -406,7 +425,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
                     do {
                         auto new_socket = acceptNewSocket(listen_sd_);
                         if (new_socket < 0) {
-                            panicIfUnexpected(errno != EWOULDBLOCK, "accept() failed", true);
+                            panicIfUnexpected(errno != NADJIEB_MJPEG_STREAMER_EWOULDBLOCK, "accept() failed", true);
                             break;
                         }
 
@@ -421,7 +440,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
                     do {
                         auto size = readFromSocket(fds_[i].fd, &buff[0], buff.size(), 0);
                         if (size < 0) {
-                            if (errno != EWOULDBLOCK) {
+                            if (errno != NADJIEB_MJPEG_STREAMER_EWOULDBLOCK) {
                                 std::cerr << "readFromSocket() failed" << std::endl;
                                 close_conn = true;
                             }
@@ -465,7 +484,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
     }
 
    private:
-    SocketFD listen_sd_ = SOCKET_ERROR;
+    SocketFD listen_sd_ = NADJIEB_MJPEG_STREAMER_SOCKET_ERROR;
     bool end_listener_ = true;
     std::vector<struct pollfd> fds_;
     OnMessageCallback on_message_cb_;
@@ -474,7 +493,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
 
     void compress() {
         for (auto it = fds_.begin(); it != fds_.end();) {
-            if ((*it).fd == SOCKET_ERROR) {
+            if ((*it).fd == NADJIEB_MJPEG_STREAMER_SOCKET_ERROR) {
                 it = fds_.erase(it);
             } else {
                 ++it;
@@ -654,7 +673,7 @@ class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Run
 
             auto socket_count = pollSockets(&psd, 1, 1);
 
-            if (socket_count == SOCKET_ERROR) {
+            if (socket_count == NADJIEB_MJPEG_STREAMER_SOCKET_ERROR) {
                 throw std::runtime_error("pollSockets() failed\n");
             }
 

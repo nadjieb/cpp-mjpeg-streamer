@@ -140,7 +140,7 @@ class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Run
 
             auto socket_count = pollSockets(&psd, 1, 1);
 
-            if (socket_count == SOCKET_ERROR) {
+            if (socket_count == NADJIEB_MJPEG_STREAMER_SOCKET_ERROR) {
                 throw std::runtime_error("pollSockets() failed\n");
             }
 
