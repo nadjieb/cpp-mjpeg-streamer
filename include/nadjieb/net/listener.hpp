@@ -4,8 +4,6 @@
 #include <nadjieb/utils/non_copyable.hpp>
 #include <nadjieb/utils/runnable.hpp>
 
-#include <errno.h>
-
 #include <functional>
 #include <iostream>
 #include <stdexcept>

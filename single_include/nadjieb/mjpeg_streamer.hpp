@@ -132,14 +132,13 @@ struct HTTPMessage {
 
 
 #ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
-#define WIN32_LEAN_AND_MEAN
+#include <WS2tcpip.h>
+#pragma comment(lib, "ws2_32.lib")
 #include <WinError.h>
 #include <errno.h>
-#include <winsock.h>
-#include <winsock2.h>
-#include <ws2tcpip.h>
 #elif defined NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX
 #include <arpa/inet.h>
+#include <errno.h>
 #include <poll.h>
 #include <signal.h>
 #include <sys/ioctl.h>
@@ -147,6 +146,7 @@ struct HTTPMessage {
 #include <unistd.h>
 #elif defined NADJIEB_MJPEG_STREAMER_PLATFORM_DARWIN
 #include <arpa/inet.h>
+#include <errno.h>
 #include <poll.h>
 #include <signal.h>
 #include <sys/ioctl.h>
@@ -335,8 +335,6 @@ class Runnable {
 }  // namespace utils
 }  // namespace nadjieb
 
-
-#include <errno.h>
 
 #include <functional>
 #include <iostream>
