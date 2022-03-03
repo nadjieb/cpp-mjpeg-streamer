@@ -134,7 +134,7 @@ class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Run
 
             auto res_str = res.serialize();
 
-            struct pollfd psd;
+            NADJIEB_MJPEG_STREAMER_POLLFD psd;
             psd.fd = payload.sockfd;
             psd.events = POLLOUT;
 

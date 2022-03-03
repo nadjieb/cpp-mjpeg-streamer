@@ -5,10 +5,10 @@
 #ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
 #define WIN32_LEAN_AND_MEAN
 #include <WinError.h>
-#include <Ws2tcpip.h>
 #include <errno.h>
 #include <winsock.h>
 #include <winsock2.h>
+#include <ws2tcpip.h>
 #elif defined NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX
 #include <arpa/inet.h>
 #include <poll.h>
@@ -34,6 +34,7 @@ namespace net {
 
 #ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
 typedef SOCKET SocketFD;
+#define NADJIEB_MJPEG_STREAMER_POLLFD WSAPOLLFD
 #define NADJIEB_MJPEG_STREAMER_ERRNO WSAGetLastError()
 #define NADJIEB_MJPEG_STREAMER_ENOTSOCK WSAENOTSOCK
 #define NADJIEB_MJPEG_STREAMER_EWOULDBLOCK WSAEWOULDBLOCK
@@ -43,6 +44,7 @@ typedef SOCKET SocketFD;
 #define NADJIEB_MJPEG_STREAMER_INVALID_SOCKET INVALID_SOCKET
 
 #elif defined NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX || defined NADJIEB_MJPEG_STREAMER_PLATFORM_DARWIN
+#define NADJIEB_MJPEG_STREAMER_POLLFD pollfd
 #define NADJIEB_MJPEG_STREAMER_ERRNO errno
 #define NADJIEB_MJPEG_STREAMER_ENOTSOCK EBADF
 #define NADJIEB_MJPEG_STREAMER_EWOULDBLOCK EAGAIN
@@ -149,15 +151,15 @@ static SocketFD acceptNewSocket(SocketFD sockfd) {
     return ::accept(sockfd, nullptr, nullptr);
 }
 
-static int readFromSocket(int socket, void* buffer, size_t length, int flags) {
+static int readFromSocket(int socket, char* buffer, size_t length, int flags) {
     return ::recv(socket, buffer, length, flags);
 }
 
-static int sendViaSocket(int socket, const void* buffer, size_t length, int flags) {
+static int sendViaSocket(int socket, const char* buffer, size_t length, int flags) {
     return ::send(socket, buffer, length, flags);
 }
 
-static int pollSockets(struct pollfd* fds, int nfds, long timeout) {
+static int pollSockets(NADJIEB_MJPEG_STREAMER_POLLFD* fds, int nfds, long timeout) {
 #ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
     return WSAPoll(&fds[0], nfds, timeout);
 #elif defined NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX || defined NADJIEB_MJPEG_STREAMER_PLATFORM_DARWIN

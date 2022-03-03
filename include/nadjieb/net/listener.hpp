@@ -59,7 +59,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
         bindSocket(listen_sd_, "0.0.0.0", port);
         listenOnSocket(listen_sd_, SOMAXCONN);
 
-        fds_.emplace_back(pollfd{listen_sd_, POLLIN, 0});
+        fds_.emplace_back(NADJIEB_MJPEG_STREAMER_POLLFD{listen_sd_, POLLIN, 0});
 
         std::string buff(4096, 0);
 
@@ -101,7 +101,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
 
                         setSocketNonblock(new_socket);
 
-                        fds_.emplace_back(pollfd{new_socket, POLLIN, 0});
+                        fds_.emplace_back(NADJIEB_MJPEG_STREAMER_POLLFD{new_socket, POLLIN, 0});
                     } while (true);
                 } else {
                     std::string data;
@@ -156,7 +156,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
    private:
     SocketFD listen_sd_ = NADJIEB_MJPEG_STREAMER_SOCKET_ERROR;
     bool end_listener_ = true;
-    std::vector<struct pollfd> fds_;
+    std::vector<NADJIEB_MJPEG_STREAMER_POLLFD> fds_;
     OnMessageCallback on_message_cb_;
     OnBeforeCloseCallback on_before_close_cb_;
     std::thread thread_listener_;

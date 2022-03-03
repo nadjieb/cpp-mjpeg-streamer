@@ -134,10 +134,10 @@ struct HTTPMessage {
 #ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
 #define WIN32_LEAN_AND_MEAN
 #include <WinError.h>
-#include <Ws2tcpip.h>
 #include <errno.h>
 #include <winsock.h>
 #include <winsock2.h>
+#include <ws2tcpip.h>
 #elif defined NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX
 #include <arpa/inet.h>
 #include <poll.h>
@@ -163,6 +163,7 @@ namespace net {
 
 #ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
 typedef SOCKET SocketFD;
+#define NADJIEB_MJPEG_STREAMER_POLLFD WSAPOLLFD
 #define NADJIEB_MJPEG_STREAMER_ERRNO WSAGetLastError()
 #define NADJIEB_MJPEG_STREAMER_ENOTSOCK WSAENOTSOCK
 #define NADJIEB_MJPEG_STREAMER_EWOULDBLOCK WSAEWOULDBLOCK
@@ -172,6 +173,7 @@ typedef SOCKET SocketFD;
 #define NADJIEB_MJPEG_STREAMER_INVALID_SOCKET INVALID_SOCKET
 
 #elif defined NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX || defined NADJIEB_MJPEG_STREAMER_PLATFORM_DARWIN
+#define NADJIEB_MJPEG_STREAMER_POLLFD pollfd
 #define NADJIEB_MJPEG_STREAMER_ERRNO errno
 #define NADJIEB_MJPEG_STREAMER_ENOTSOCK EBADF
 #define NADJIEB_MJPEG_STREAMER_EWOULDBLOCK EAGAIN
@@ -278,15 +280,15 @@ static SocketFD acceptNewSocket(SocketFD sockfd) {
     return ::accept(sockfd, nullptr, nullptr);
 }
 
-static int readFromSocket(int socket, void* buffer, size_t length, int flags) {
+static int readFromSocket(int socket, char* buffer, size_t length, int flags) {
     return ::recv(socket, buffer, length, flags);
 }
 
-static int sendViaSocket(int socket, const void* buffer, size_t length, int flags) {
+static int sendViaSocket(int socket, const char* buffer, size_t length, int flags) {
     return ::send(socket, buffer, length, flags);
 }
 
-static int pollSockets(struct pollfd* fds, int nfds, long timeout) {
+static int pollSockets(NADJIEB_MJPEG_STREAMER_POLLFD* fds, int nfds, long timeout) {
 #ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
     return WSAPoll(&fds[0], nfds, timeout);
 #elif defined NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX || defined NADJIEB_MJPEG_STREAMER_PLATFORM_DARWIN
@@ -389,7 +391,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
         bindSocket(listen_sd_, "0.0.0.0", port);
         listenOnSocket(listen_sd_, SOMAXCONN);
 
-        fds_.emplace_back(pollfd{listen_sd_, POLLIN, 0});
+        fds_.emplace_back(NADJIEB_MJPEG_STREAMER_POLLFD{listen_sd_, POLLIN, 0});
 
         std::string buff(4096, 0);
 
@@ -431,7 +433,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
 
                         setSocketNonblock(new_socket);
 
-                        fds_.emplace_back(pollfd{new_socket, POLLIN, 0});
+                        fds_.emplace_back(NADJIEB_MJPEG_STREAMER_POLLFD{new_socket, POLLIN, 0});
                     } while (true);
                 } else {
                     std::string data;
@@ -486,7 +488,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
    private:
     SocketFD listen_sd_ = NADJIEB_MJPEG_STREAMER_SOCKET_ERROR;
     bool end_listener_ = true;
-    std::vector<struct pollfd> fds_;
+    std::vector<NADJIEB_MJPEG_STREAMER_POLLFD> fds_;
     OnMessageCallback on_message_cb_;
     OnBeforeCloseCallback on_before_close_cb_;
     std::thread thread_listener_;
@@ -667,7 +669,7 @@ class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Run
 
             auto res_str = res.serialize();
 
-            struct pollfd psd;
+            NADJIEB_MJPEG_STREAMER_POLLFD psd;
             psd.fd = payload.sockfd;
             psd.events = POLLOUT;
 
