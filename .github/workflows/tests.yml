@@ -18,52 +18,37 @@ jobs:
               name: "Windows Latest MSVC",
               os: windows-latest,
               artifact: "windows_msvc.7z",
-              build_type: "Release",
               cc: "cl",
               cxx: "cl",
               environment_script: "C:/Program Files (x86)/Microsoft Visual Studio/2019/Enterprise/VC/Auxiliary/Build/vcvars64.bat",
-              archiver: "7z a",
-              generators: "Visual Studio 16 2019",
             }
           - {
               name: "Windows Latest MinGW",
               os: windows-latest,
               artifact: "windows_mingw.7z",
-              build_type: "Release",
               cc: "gcc",
               cxx: "g++",
-              archiver: "7z a",
-              generators: "Ninja",
             }
           - {
               name: "Ubuntu_Latest_GCC",
               os: ubuntu-latest,
               artifact: "ubuntu_gcc.7z",
-              build_type: "Release",
               cc: "gcc",
               cxx: "g++",
-              archiver: "7z a",
-              generators: "Ninja",
             }
           - {
               name: "Ubuntu_GCC_9",
               os: ubuntu-latest,
               artifact: "ubuntu_gcc9.7z",
-              build_type: "Release",
               cc: "gcc",
               cxx: "g++",
-              archiver: "7z a",
-              generators: "Ninja",
             }
           - {
               name: "macOS Latest Clang",
               os: macos-latest,
               artifact: "macos_clang.7z",
-              build_type: "Release",
               cc: "clang",
               cxx: "clang++",
-              archiver: "7za a",
-              generators: "Ninja",
             }
 
     steps:
@@ -80,7 +65,6 @@ jobs:
           choco install ninja cmake
           ninja --version
           cmake --version
-          cmd "${{ matrix.config.environment_script }}"
 
       - name: Install dependencies on ubuntu
         if: startsWith(matrix.config.name, 'Ubuntu_Latest_GCC')
@@ -130,7 +114,7 @@ jobs:
       - name: Install dependencies on macos
         if: startsWith(matrix.config.os, 'macos')
         run: |
-          brew install p7zip cmake ninja
+          brew install cmake ninja
           ninja --version
           cmake --version
 
@@ -140,8 +124,8 @@ jobs:
           cmake \
             -S . \
             -B build \
-            -DCMAKE_BUILD_TYPE=${{ matrix.config.build_type }} \
-            -G "${{ matrix.config.generators }}" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -G Ninja \
             -DNADJIEB_MJPEG_STREAMER_BuildTests=On \
             -DNADJIEB_MJPEG_STREAMER_MultipleHeaders=ON
 
