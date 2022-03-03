@@ -132,8 +132,11 @@ struct HTTPMessage {
 
 
 #ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
-#include <WS2tcpip.h>
-#pragma comment(lib, "ws2_32.lib")
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#pragma comment(lib, "Ws2_32.lib")
 #include <WinError.h>
 #include <errno.h>
 #elif defined NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX
@@ -264,7 +267,7 @@ static void bindSocket(SocketFD sockfd, const char* ip, int port) {
     ip_addr.sin_family = AF_INET;
     ip_addr.sin_port = htons(port);
     ip_addr.sin_addr.s_addr = INADDR_ANY;
-    auto res = ::inet_pton(AF_INET, ip, &ip_addr.sin_addr);
+    auto res = inet_pton(AF_INET, ip, &ip_addr.sin_addr);
     panicIfUnexpected(res <= 0, "inet_pton() failed", sockfd);
 
     res = ::bind(sockfd, (struct sockaddr*)&ip_addr, sizeof(ip_addr));
