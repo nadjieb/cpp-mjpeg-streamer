@@ -5,6 +5,7 @@
 #ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
 #undef UNICODE
 #define WIN32_LEAN_AND_MEAN
+#define _WIN32_WINNT_WINXP
 #include <windows.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
