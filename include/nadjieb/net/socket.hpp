@@ -11,6 +11,7 @@
 #include <winsock2.h>
 #elif defined NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX
 #include <arpa/inet.h>
+#include <poll.h>
 #include <signal.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
@@ -137,7 +138,7 @@ static int sendViaSocket(int socket, const void* buffer, size_t length, int flag
     return ::send(socket, buffer, length, flags);
 }
 
-static int pollSockets(struct pollfd* fds, nfds_t nfds, int timeout) {
+static int pollSockets(struct pollfd* fds, int nfds, int timeout) {
 #ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
     return WSAPoll(&fds[0], nfds, timeout);
 #elif defined NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX || defined NADJIEB_MJPEG_STREAMER_PLATFORM_DARWIN
