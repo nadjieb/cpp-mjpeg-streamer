@@ -70,7 +70,10 @@ struct HTTPMessage {
         stream << start_line << delimiter;
 
         for (const auto& header : headers) {
-            stream << header.first << ": " << header.second << delimiter;
+            stream << header.first;
+            stream << ": ";
+            stream << header.second;
+            stream << delimiter;
         }
 
         stream << delimiter << body;
