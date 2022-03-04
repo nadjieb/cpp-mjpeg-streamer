@@ -34,6 +34,7 @@
 #endif
 
 #include <stdexcept>
+#include <string>
 
 namespace nadjieb {
 namespace net {
