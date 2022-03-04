@@ -44,15 +44,14 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
 
     void run(int port) {
         state_ = nadjieb::utils::State::BOOTING;
-        panicIfUnexpected(on_message_cb_ == nullptr, "not setting on_message_cb", false);
-        panicIfUnexpected(on_before_close_cb_ == nullptr, "not setting on_before_close_cb", false);
+        panicIfUnexpected(on_message_cb_ == nullptr, "not setting on_message_cb");
+        panicIfUnexpected(on_before_close_cb_ == nullptr, "not setting on_before_close_cb");
 
         end_listener_ = false;
 
         initSocket();
         listen_sd_ = createSocket(AF_INET, SOCK_STREAM, 0);
         setSocketReuseAddress(listen_sd_);
-        setSocketReusePort(listen_sd_);
         setSocketNonblock(listen_sd_);
         bindSocket(listen_sd_, "0.0.0.0", port);
         listenOnSocket(listen_sd_, SOMAXCONN);
@@ -66,7 +65,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
         while (!end_listener_) {
             int socket_count = pollSockets(&fds_[0], fds_.size(), 100);
 
-            panicIfUnexpected(socket_count == NADJIEB_MJPEG_STREAMER_SOCKET_ERROR, "pollSockets() failed", true);
+            panicIfUnexpected(socket_count == NADJIEB_MJPEG_STREAMER_SOCKET_ERROR, "pollSockets() failed");
 
             if (socket_count == 0) {
                 continue;
@@ -87,13 +86,13 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
                     continue;
                 }
 
-                panicIfUnexpected(fds_[i].revents != POLLIN, "revents != POLLIN", true);
+                panicIfUnexpected(fds_[i].revents != POLLIN, "revents != POLLIN");
 
                 if (fds_[i].fd == listen_sd_) {
                     do {
                         auto new_socket = acceptNewSocket(listen_sd_);
                         if (new_socket < 0) {
-                            panicIfUnexpected(errno != NADJIEB_MJPEG_STREAMER_EWOULDBLOCK, "accept() failed", true);
+                            panicIfUnexpected(errno != NADJIEB_MJPEG_STREAMER_EWOULDBLOCK, "accept() failed");
                             break;
                         }
 
@@ -183,11 +182,9 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
         state_ = nadjieb::utils::State::TERMINATED;
     }
 
-    void panicIfUnexpected(bool condition, const std::string& message, bool close_all) {
+    void panicIfUnexpected(bool condition, const std::string& message) {
         if (condition) {
-            if (close_all) {
-                closeAll();
-            }
+            closeAll();
             throw std::runtime_error(message);
         }
     }

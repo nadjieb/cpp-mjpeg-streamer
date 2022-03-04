@@ -116,15 +116,6 @@ static void setSocketReuseAddress(SocketFD sockfd) {
     panicIfUnexpected(res == NADJIEB_MJPEG_STREAMER_SOCKET_ERROR, "setSocketReuseAddress() failed", sockfd);
 }
 
-static void setSocketReusePort(SocketFD sockfd) {
-#if defined NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX || defined NADJIEB_MJPEG_STREAMER_PLATFORM_DARWIN
-    const int enable = 1;
-    auto res = ::setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(enable));
-
-    panicIfUnexpected(res == NADJIEB_MJPEG_STREAMER_SOCKET_ERROR, "setSocketReusePort() failed", sockfd);
-#endif
-}
-
 static void setSocketNonblock(SocketFD sockfd) {
     unsigned long ul = true;
     int res;

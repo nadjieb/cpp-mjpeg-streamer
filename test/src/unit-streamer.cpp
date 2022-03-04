@@ -5,8 +5,6 @@
 #include <future>
 #include <string>
 
-#define private public
-
 #include <nadjieb/mjpeg_streamer.hpp>
 
 TEST_SUITE("streamer") {
