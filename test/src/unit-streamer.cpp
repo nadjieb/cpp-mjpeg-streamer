@@ -40,25 +40,36 @@ TEST_SUITE("streamer") {
             nadjieb::MJPEGStreamer streamer;
             streamer.start(1235);
 
+            std::cout << 111 << std::endl;
             auto task = std::async(std::launch::async, [&]() {
                 const std::string delimiter = "\r\n\r\n";
                 httplib::Client cli("localhost", 1235);
+
+                std::cout << 222 << std::endl;
 
                 while (!ready) {
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 }
 
+                std::cout << 333 << std::endl;
+
                 auto res1 = cli.Get("/buffer1", [&](const char* data, size_t data_length) {
+                    std::cout << 444 << std::endl;
                     received_buffer1.assign(data, data_length);
                     received_buffer1 = received_buffer1.substr(received_buffer1.find(delimiter) + delimiter.size());
                     return false;
                 });
 
+                std::cout << 555 << std::endl;
+
                 auto res2 = cli.Get("/buffer2", [&](const char* data, size_t data_length) {
+                    std::cout << 666 << std::endl;
                     received_buffer2.assign(data, data_length);
                     received_buffer2 = received_buffer2.substr(received_buffer2.find(delimiter) + delimiter.size());
                     return false;
                 });
+
+                std::cout << 777 << std::endl;
 
                 streamer.stop();
             });
