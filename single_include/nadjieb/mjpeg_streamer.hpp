@@ -392,7 +392,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
         bindSocket(listen_sd_, "0.0.0.0", port);
         listenOnSocket(listen_sd_, SOMAXCONN);
 
-        fds_.emplace_back(NADJIEB_MJPEG_STREAMER_POLLFD{listen_sd_, POLLIN, 0});
+        fds_.emplace_back(NADJIEB_MJPEG_STREAMER_POLLFD{listen_sd_, POLLRDNORM, 0});
 
         std::string buff(4096, 0);
 
@@ -438,7 +438,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
                 std::cout << std::hex << (POLLRDNORM | POLLRDBAND) << std::dec << std::endl;
                 std::cout << std::hex << fds_[i].revents << std::dec << std::endl;
 
-                panicIfUnexpected(fds_[i].revents != POLLIN, "revents != POLLIN");
+                panicIfUnexpected(fds_[i].revents != POLLRDNORM, "revents != POLLRDNORM");
 
                 if (fds_[i].fd == listen_sd_) {
                     do {
@@ -450,7 +450,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
 
                         setSocketNonblock(new_socket);
 
-                        fds_.emplace_back(NADJIEB_MJPEG_STREAMER_POLLFD{new_socket, POLLIN, 0});
+                        fds_.emplace_back(NADJIEB_MJPEG_STREAMER_POLLFD{new_socket, POLLRDNORM, 0});
                     } while (true);
                 } else {
                     std::string data;
@@ -689,7 +689,7 @@ class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Run
 
             NADJIEB_MJPEG_STREAMER_POLLFD psd;
             psd.fd = payload.sockfd;
-            psd.events = POLLOUT;
+            psd.events = POLLWRNORM;
 
             auto socket_count = pollSockets(&psd, 1, 1);
 
@@ -701,8 +701,8 @@ class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Run
                 continue;
             }
 
-            if (psd.revents != POLLOUT) {
-                throw std::runtime_error("revents != POLLOUT\n");
+            if (psd.revents != POLLWRNORM) {
+                throw std::runtime_error("revents != POLLWRNORM\n");
             }
 
             sendViaSocket(payload.sockfd, res_str.c_str(), res_str.size(), 0);

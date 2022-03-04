@@ -138,7 +138,7 @@ class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Run
 
             NADJIEB_MJPEG_STREAMER_POLLFD psd;
             psd.fd = payload.sockfd;
-            psd.events = POLLOUT;
+            psd.events = POLLWRNORM;
 
             auto socket_count = pollSockets(&psd, 1, 1);
 
@@ -150,8 +150,8 @@ class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Run
                 continue;
             }
 
-            if (psd.revents != POLLOUT) {
-                throw std::runtime_error("revents != POLLOUT\n");
+            if (psd.revents != POLLWRNORM) {
+                throw std::runtime_error("revents != POLLWRNORM\n");
             }
 
             sendViaSocket(payload.sockfd, res_str.c_str(), res_str.size(), 0);
