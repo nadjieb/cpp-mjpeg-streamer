@@ -267,7 +267,7 @@ static void setSocketNonblock(SocketFD sockfd) {
 static void bindSocket(SocketFD sockfd, const char* ip, int port) {
     struct sockaddr_in ip_addr;
     ip_addr.sin_family = AF_INET;
-    ip_addr.sin_port = htons(port);
+    ip_addr.sin_port = htons((uint16_t)port);
     ip_addr.sin_addr.s_addr = INADDR_ANY;
     auto res = inet_pton(AF_INET, ip, &ip_addr.sin_addr);
     panicIfUnexpected(res <= 0, "inet_pton() failed", sockfd);
@@ -409,9 +409,9 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
                 continue;
             }
 
-            auto current_size = fds_.size();
+            size_t current_size = fds_.size();
             bool compress_array = false;
-            for (auto i = 0; i < current_size; ++i) {
+            for (size_t i = 0; i < current_size; ++i) {
                 if (fds_[i].revents == 0) {
                     continue;
                 }
@@ -419,7 +419,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
                 if (fds_[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
                     on_before_close_cb_(fds_[i].fd);
                     closeSocket(fds_[i].fd);
-                    fds_[i].fd = -1;
+                    fds_[i].fd = (SocketFD)-1;
                     compress_array = true;
                     continue;
                 }
@@ -474,7 +474,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
                     if (close_conn) {
                         on_before_close_cb_(fds_[i].fd);
                         closeSocket(fds_[i].fd);
-                        fds_[i].fd = -1;
+                        fds_[i].fd = (SocketFD)-1;
                         compress_array = true;
                     }
                 }
@@ -489,7 +489,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
     }
 
    private:
-    SocketFD listen_sd_ = NADJIEB_MJPEG_STREAMER_SOCKET_ERROR;
+    SocketFD listen_sd_ = NADJIEB_MJPEG_STREAMER_INVALID_SOCKET;
     bool end_listener_ = true;
     std::vector<NADJIEB_MJPEG_STREAMER_POLLFD> fds_;
     OnMessageCallback on_message_cb_;

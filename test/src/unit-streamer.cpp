@@ -22,9 +22,7 @@ TEST_SUITE("streamer") {
                 streamer.start(1234);
                 streamer.publish("/foo", "foo");
 
-                THEN("The streamer is alive but has no client for \"/foo\"") {
-                    CHECK(streamer.isRunning() == true);
-                }
+                THEN("The streamer is alive but has no client for \"/foo\"") { CHECK(streamer.isRunning() == true); }
             }
 
             WHEN("The streamer stop") {
@@ -54,15 +52,13 @@ TEST_SUITE("streamer") {
 
                 auto res1 = cli.Get("/buffer1", [&](const char* data, size_t data_length) {
                     received_buffer1.assign(data, data_length);
-                    received_buffer1 = received_buffer1.substr(
-                        received_buffer1.find(delimiter) + delimiter.size());
+                    received_buffer1 = received_buffer1.substr(received_buffer1.find(delimiter) + delimiter.size());
                     return false;
                 });
 
                 auto res2 = cli.Get("/buffer2", [&](const char* data, size_t data_length) {
                     received_buffer2.assign(data, data_length);
-                    received_buffer2 = received_buffer2.substr(
-                        received_buffer2.find(delimiter) + delimiter.size());
+                    received_buffer2 = received_buffer2.substr(received_buffer2.find(delimiter) + delimiter.size());
                     return false;
                 });
 
@@ -190,7 +186,7 @@ TEST_SUITE("streamer") {
             bool ready = false;
 
             auto client = std::async(std::launch::async, [&]() {
-                auto res = cli.Get("/buffer", [&](const char* data, size_t data_length) {
+                auto res = cli.Get("/buffer", [&](const char*, size_t) {
                     ready = true;
                     return streamer.isRunning();
                 });

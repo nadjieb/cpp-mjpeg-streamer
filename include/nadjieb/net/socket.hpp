@@ -139,7 +139,7 @@ static void setSocketNonblock(SocketFD sockfd) {
 static void bindSocket(SocketFD sockfd, const char* ip, int port) {
     struct sockaddr_in ip_addr;
     ip_addr.sin_family = AF_INET;
-    ip_addr.sin_port = htons(port);
+    ip_addr.sin_port = htons((uint16_t)port);
     ip_addr.sin_addr.s_addr = INADDR_ANY;
     auto res = inet_pton(AF_INET, ip, &ip_addr.sin_addr);
     panicIfUnexpected(res <= 0, "inet_pton() failed", sockfd);
