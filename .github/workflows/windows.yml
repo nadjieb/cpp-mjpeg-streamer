@@ -26,7 +26,7 @@ jobs:
       - name: test
         run: cd build ; ctest -j 10 -C Debug --output-on-failure
 
-  msvc2019:
+  msvc:
     runs-on: windows-latest
     strategy:
       matrix:
@@ -42,7 +42,7 @@ jobs:
       - name: test
         run: cd build ; ctest -j 10 -C ${{ matrix.build_type }} --output-on-failure
 
-  msvc2019_latest:
+  msvc_latest:
     runs-on: windows-latest
 
     steps:
