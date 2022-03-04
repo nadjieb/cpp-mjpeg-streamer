@@ -425,23 +425,32 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
                 panicIfUnexpected(fds_[i].revents != POLLRDNORM, "revents != POLLRDNORM");
 
                 if (fds_[i].fd == listen_sd_) {
+                    std::cout << 111 << std::endl;
                     do {
                         auto new_socket = acceptNewSocket(listen_sd_);
                         if (new_socket < 0) {
+                            std::cout << 444 << std::endl;
                             panicIfUnexpected(errno != NADJIEB_MJPEG_STREAMER_EWOULDBLOCK, "accept() failed");
                             break;
                         }
 
+                        std::cout << 222 << std::endl;
+
                         setSocketNonblock(new_socket);
+
+                        std::cout << 333 << std::endl;
 
                         fds_.emplace_back(NADJIEB_MJPEG_STREAMER_POLLFD{new_socket, POLLRDNORM, 0});
                     } while (true);
+                    std::cout << 555 << std::endl;
                 } else {
+                    std::cout << 666 << std::endl;
                     std::string data;
                     bool close_conn = false;
 
                     do {
                         auto size = readFromSocket(fds_[i].fd, &buff[0], buff.size(), 0);
+                        std::cout << 777 << std::endl;
                         if (size < 0) {
                             if (errno != NADJIEB_MJPEG_STREAMER_EWOULDBLOCK) {
                                 std::cerr << "readFromSocket() failed" << std::endl;
