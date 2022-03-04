@@ -102,7 +102,7 @@ static void initSocket() {
 static SocketFD createSocket(int af, int type, int protocol) {
     SocketFD sockfd = ::socket(af, type, protocol);
 
-    panicIfUnexpected(sockfd == NADJIEB_MJPEG_STREAMER_SOCKET_ERROR, "createSocket() failed", sockfd);
+    panicIfUnexpected(sockfd == NADJIEB_MJPEG_STREAMER_INVALID_SOCKET, "createSocket() failed", sockfd);
 
     return sockfd;
 }
