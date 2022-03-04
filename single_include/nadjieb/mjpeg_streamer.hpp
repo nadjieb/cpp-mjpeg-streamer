@@ -618,6 +618,7 @@ class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Run
             std::unique_lock<std::mutex> payloads_lock(payloads_mtx_);
             payloads_.emplace(buffer, path, sockfd);
             payloads_lock.unlock();
+            std::cout << payloads_.size() << std::endl;
             condition_.notify_one();
         }
     }
@@ -656,8 +657,12 @@ class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Run
 
             std::unique_lock<std::mutex> payloads_lock(payloads_mtx_);
 
+            std::cout << "unload before " << payloads_.size() << std::endl;
+
             Payload payload = std::move(payloads_.front());
             payloads_.pop();
+
+            std::cout << "unload after " << payloads_.size() << std::endl;
 
             payloads_lock.unlock();
             cv_lock.unlock();
