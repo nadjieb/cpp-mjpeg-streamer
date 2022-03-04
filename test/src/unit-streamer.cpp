@@ -63,17 +63,26 @@ TEST_SUITE("streamer") {
                 streamer.stop();
             });
 
+            std::cout << "AAA" << std::endl;
+
             WHEN("The streamer streams buffers") {
                 const std::string buffer1 = "buffer1";
                 const std::string buffer2 = "buffer2";
 
                 ready = true;
 
+                std::cout << "BBB" << std::endl;
+
                 while (streamer.isRunning()) {
+                    std::cout << "CCC" << std::endl;
                     streamer.publish("/buffer1", buffer1);
+                    std::cout << "DDD" << std::endl;
                     streamer.publish("/buffer2", buffer2);
+                    std::cout << "EEE" << std::endl;
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 }
+
+                std::cout << "FFF" << std::endl;
 
                 task.wait();
 
