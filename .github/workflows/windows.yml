@@ -36,7 +36,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: cmake
-        run: cmake -S . -B build -G "Visual Studio 17 2022" -A ${{ matrix.architecture }} -D NADJIEB_MJPEG_STREAMER_BuildTests=On -D NADJIEB_MJPEG_STREAMER_MultipleHeaders=ON -D CMAKE_CXX_FLAGS="/W4 /WX"
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A ${{ matrix.architecture }} -D NADJIEB_MJPEG_STREAMER_BuildTests=On -D NADJIEB_MJPEG_STREAMER_MultipleHeaders=ON
       - name: build
         run: cmake --build build --config ${{ matrix.build_type }} --parallel 10
       - name: test
@@ -48,7 +48,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: cmake
-        run: cmake -S . -B build -G "Visual Studio 17 2022" -D NADJIEB_MJPEG_STREAMER_BuildTests=On -D NADJIEB_MJPEG_STREAMER_MultipleHeaders=ON -DCMAKE_CXX_FLAGS="/permissive- /std:c++latest /utf-8 /W4 /WX"
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -D NADJIEB_MJPEG_STREAMER_BuildTests=On -D NADJIEB_MJPEG_STREAMER_MultipleHeaders=ON
       - name: build
         run: cmake --build build --config Release --parallel 10
       - name: test

@@ -65,16 +65,12 @@ struct HTTPMessage {
 
     std::string serialize() const {
         const std::string delimiter = "\r\n";
-        const std::string header_colon = ": ";
         std::stringstream stream;
 
         stream << start_line << delimiter;
 
         for (const auto& header : headers) {
-            stream << header.first;
-            stream << header_colon;
-            stream << header.second;
-            stream << delimiter;
+            stream << header.first << ": " << header.second << delimiter;
         }
 
         stream << delimiter << body;
