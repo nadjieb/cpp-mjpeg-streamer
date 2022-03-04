@@ -44,6 +44,8 @@ TEST_SUITE("streamer") {
             auto task = std::async(std::launch::async, [&]() {
                 const std::string delimiter = "\r\n\r\n";
                 httplib::Client cli("localhost", 1235);
+                bool stop1 = false;
+                bool stop2 = false;
 
                 std::cout << 222 << std::endl;
 
@@ -57,6 +59,7 @@ TEST_SUITE("streamer") {
                     std::cout << 444 << std::endl;
                     received_buffer1.assign(data, data_length);
                     received_buffer1 = received_buffer1.substr(received_buffer1.find(delimiter) + delimiter.size());
+                    stop1 = true;
                     return false;
                 });
 
@@ -66,12 +69,20 @@ TEST_SUITE("streamer") {
                     std::cout << 666 << std::endl;
                     received_buffer2.assign(data, data_length);
                     received_buffer2 = received_buffer2.substr(received_buffer2.find(delimiter) + delimiter.size());
+                    stop2 = true;
                     return false;
                 });
 
                 std::cout << 777 << std::endl;
 
+                while (!stop1 || !stop2) {
+                    std::cout << stop1 << ' ' << stop2 << std::endl;
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                }
+
                 streamer.stop();
+
+                std::cout << 888 << std::endl;
             });
 
             std::cout << "AAA" << std::endl;
