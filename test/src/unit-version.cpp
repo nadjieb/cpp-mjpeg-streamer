@@ -10,7 +10,7 @@ TEST_SUITE("Version") {
         CHECK(NADJIEB_MJPEG_STREAMER_VERSION_MINOR == 0);
         CHECK(NADJIEB_MJPEG_STREAMER_VERSION_PATCH == 0);
         CHECK(NADJIEB_MJPEG_STREAMER_VERSION_CODE == 30000);
-        std::cout << sizeof(NADJIEB_MJPEG_STREAMER_VERSION_STRING) << ' ' << sizeof("3.0.0") << std::endl;
-        CHECK(NADJIEB_MJPEG_STREAMER_VERSION_STRING == "3.0.0");
+        std::string expected_version = "3.0.0";
+        CHECK(expected_version == NADJIEB_MJPEG_STREAMER_VERSION_STRING);
     }
 }
