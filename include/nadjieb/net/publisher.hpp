@@ -17,6 +17,8 @@ namespace nadjieb {
 namespace net {
 class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runnable {
    public:
+    virtual ~Publisher() { stop(); }
+
     void start(int num_workers = 1) {
         state_ = nadjieb::utils::State::BOOTING;
         end_publisher_ = false;

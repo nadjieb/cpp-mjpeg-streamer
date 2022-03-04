@@ -23,6 +23,8 @@ using OnBeforeCloseCallback = std::function<void(const SocketFD&)>;
 
 class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runnable {
    public:
+    virtual ~Listener() { stop(); }
+
     Listener& withOnMessageCallback(const OnMessageCallback& callback) {
         on_message_cb_ = callback;
         return *this;

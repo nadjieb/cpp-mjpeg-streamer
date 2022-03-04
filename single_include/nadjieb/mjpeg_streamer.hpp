@@ -218,9 +218,8 @@ static void panicIfUnexpected(
 
 static void initSocket() {
 #ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
-    WSAData data;
-    WORD ver = MAKEWORD(2, 2);
-    auto res = WSAStartup(ver, &data);
+    WSAData wsaData;
+    auto res = WSAStartup(MAKEWORD(2, 2), &wsaData);
     panicIfUnexpected(res != 0, "initSocket() failed");
 #elif defined NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX || defined NADJIEB_MJPEG_STREAMER_PLATFORM_DARWIN
     auto res = signal(SIGPIPE, SIG_IGN);
@@ -358,6 +357,8 @@ using OnBeforeCloseCallback = std::function<void(const SocketFD&)>;
 
 class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runnable {
    public:
+    virtual ~Listener() { stop(); }
+
     Listener& withOnMessageCallback(const OnMessageCallback& callback) {
         on_message_cb_ = callback;
         return *this;
@@ -550,6 +551,8 @@ namespace nadjieb {
 namespace net {
 class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runnable {
    public:
+    virtual ~Publisher() { stop(); }
+
     void start(int num_workers = 1) {
         state_ = nadjieb::utils::State::BOOTING;
         end_publisher_ = false;

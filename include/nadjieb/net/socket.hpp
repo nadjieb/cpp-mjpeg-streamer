@@ -90,9 +90,8 @@ static void panicIfUnexpected(
 
 static void initSocket() {
 #ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
-    WSAData data;
-    WORD ver = MAKEWORD(2, 2);
-    auto res = WSAStartup(ver, &data);
+    WSAData wsaData;
+    auto res = WSAStartup(MAKEWORD(2, 2), &wsaData);
     panicIfUnexpected(res != 0, "initSocket() failed");
 #elif defined NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX || defined NADJIEB_MJPEG_STREAMER_PLATFORM_DARWIN
     auto res = signal(SIGPIPE, SIG_IGN);
