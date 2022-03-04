@@ -606,11 +606,13 @@ class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Run
 
     void enqueue(const std::string& path, const std::string& buffer) {
         if (end_publisher_) {
+            std::cout << "end_publisher" << payloads_.size() << std::endl;
             return;
         }
 
         auto it = path2clients_.find(path);
         if (it == path2clients_.end()) {
+            std::cout << "path doesnt exists" << payloads_.size() << std::endl;
             return;
         }
 
@@ -618,7 +620,7 @@ class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Run
             std::unique_lock<std::mutex> payloads_lock(payloads_mtx_);
             payloads_.emplace(buffer, path, sockfd);
             payloads_lock.unlock();
-            std::cout << payloads_.size() << std::endl;
+            std::cout << "enqueued" << payloads_.size() << std::endl;
             condition_.notify_one();
         }
     }
