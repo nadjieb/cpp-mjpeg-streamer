@@ -2,6 +2,8 @@
 
 #include <nadjieb/utils/version.hpp>
 
+#include <string>
+
 TEST_SUITE("Version") {
     TEST_CASE("Version") {
         CHECK(NADJIEB_MJPEG_STREAMER_VERSION_MAJOR == 3);
