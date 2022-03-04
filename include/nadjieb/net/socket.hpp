@@ -61,25 +61,6 @@ typedef int SocketFD;
 #define NADJIEB_MJPEG_STREAMER_INVALID_SOCKET (-1)
 #endif
 
-static bool initSocket() {
-    bool ret = true;
-#ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
-    static WSADATA g_WSAData;
-    static bool WinSockIsInit = false;
-    if (WinSockIsInit) {
-        return true;
-    }
-    if (WSAStartup(MAKEWORD(2, 2), &g_WSAData) == 0) {
-        WinSockIsInit = true;
-    } else {
-        ret = false;
-    }
-#elif defined NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX || defined NADJIEB_MJPEG_STREAMER_PLATFORM_DARWIN
-    signal(SIGPIPE, SIG_IGN);
-#endif
-    return true;
-}
-
 static void destroySocket() {
 #ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
     WSACleanup();
@@ -94,11 +75,28 @@ static void closeSocket(SocketFD sockfd) {
 #endif
 }
 
-static void panicIfUnexpected(bool condition, const std::string& message, const SocketFD sockfd) {
+static void panicIfUnexpected(
+    bool condition,
+    const std::string& message,
+    const SocketFD& sockfd = NADJIEB_MJPEG_STREAMER_INVALID_SOCKET) {
     if (condition) {
-        closeSocket(sockfd);
+        if (sockfd != NADJIEB_MJPEG_STREAMER_INVALID_SOCKET) {
+            closeSocket(sockfd);
+        }
         throw std::runtime_error(message);
     }
+}
+
+static void initSocket() {
+#ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
+    WSAData data;
+    WORD ver = MAKEWORD(2, 2);
+    auto res = WSAStartup(ver, &data);
+    panicIfUnexpected(res != 0, "initSocket() failed");
+#elif defined NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX || defined NADJIEB_MJPEG_STREAMER_PLATFORM_DARWIN
+    auto res = signal(SIGPIPE, SIG_IGN);
+    panicIfUnexpected(res == SIG_ERR, "initSocket() failed");
+#endif
 }
 
 static SocketFD createSocket(int af, int type, int protocol) {
