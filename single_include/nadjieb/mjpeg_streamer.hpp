@@ -276,17 +276,17 @@ static SocketFD acceptNewSocket(SocketFD sockfd) {
     return ::accept(sockfd, nullptr, nullptr);
 }
 
-static int readFromSocket(SocketFD socket, char* buffer, int length, int flags) {
+static int readFromSocket(SocketFD socket, char* buffer, size_t length, int flags) {
     return ::recv(socket, buffer, length, flags);
 }
 
-static int sendViaSocket(SocketFD socket, const char* buffer, int length, int flags) {
+static int sendViaSocket(SocketFD socket, const char* buffer, size_t length, int flags) {
     return ::send(socket, buffer, length, flags);
 }
 
 static int pollSockets(NADJIEB_MJPEG_STREAMER_POLLFD* fds, size_t nfds, long timeout) {
 #ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
-    return WSAPoll(&fds[0], nfds, timeout);
+    return WSAPoll(&fds[0], (ULONG)nfds, timeout);
 #elif defined NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX || defined NADJIEB_MJPEG_STREAMER_PLATFORM_DARWIN
     return poll(fds, nfds, timeout);
 #endif
