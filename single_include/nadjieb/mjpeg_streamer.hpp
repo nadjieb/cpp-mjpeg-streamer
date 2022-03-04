@@ -277,11 +277,19 @@ static SocketFD acceptNewSocket(SocketFD sockfd) {
 }
 
 static int readFromSocket(SocketFD socket, char* buffer, size_t length, int flags) {
+#ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
+    return ::recv(socket, buffer, (int)length, flags);
+#else
     return ::recv(socket, buffer, length, flags);
+#endif
 }
 
 static int sendViaSocket(SocketFD socket, const char* buffer, size_t length, int flags) {
+#ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
+    return ::send(socket, buffer, (int)length, flags);
+#else
     return ::send(socket, buffer, length, flags);
+#endif
 }
 
 static int pollSockets(NADJIEB_MJPEG_STREAMER_POLLFD* fds, size_t nfds, long timeout) {
