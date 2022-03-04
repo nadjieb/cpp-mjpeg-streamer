@@ -84,6 +84,10 @@ target_link_libraries(
     Threads::Threads
 )
 
+if(WIN32)
+    target_link_libraries(${NADJIEB_MJPEG_STREAMER_TARGET_NAME} wsock32 ws2_32)
+endif()
+
 # Install a pkg-config file, so other tools can find this.
 CONFIGURE_FILE(
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake/pkg-config.pc.in"

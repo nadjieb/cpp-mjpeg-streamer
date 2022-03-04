@@ -269,12 +269,7 @@ static void bindSocket(SocketFD sockfd, const char* ip, int port) {
     ip_addr.sin_family = AF_INET;
     ip_addr.sin_port = htons(port);
     ip_addr.sin_addr.s_addr = INADDR_ANY;
-    int res;
-#ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
-    res = InetPton(AF_INET, ip, &ip_addr.sin_addr);
-#else
-    res = inet_pton(AF_INET, ip, &ip_addr.sin_addr);
-#endif
+    auto res = inet_pton(AF_INET, ip, &ip_addr.sin_addr);
     panicIfUnexpected(res <= 0, "inet_pton() failed", sockfd);
 
     res = ::bind(sockfd, (struct sockaddr*)&ip_addr, sizeof(ip_addr));
