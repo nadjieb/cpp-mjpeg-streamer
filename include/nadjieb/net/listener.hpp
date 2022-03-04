@@ -94,7 +94,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
                     std::cout << 111 << std::endl;
                     do {
                         auto new_socket = acceptNewSocket(listen_sd_);
-                        if (new_socket < 0) {
+                        if (new_socket == NADJIEB_MJPEG_STREAMER_INVALID_SOCKET) {
                             std::cout << 444 << std::endl;
                             panicIfUnexpected(errno != NADJIEB_MJPEG_STREAMER_EWOULDBLOCK, "accept() failed");
                             break;
@@ -117,7 +117,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
                     do {
                         auto size = readFromSocket(fds_[i].fd, &buff[0], buff.size(), 0);
                         std::cout << 777 << std::endl;
-                        if (size < 0) {
+                        if (size == NADJIEB_MJPEG_STREAMER_SOCKET_ERROR) {
                             if (errno != NADJIEB_MJPEG_STREAMER_EWOULDBLOCK) {
                                 std::cerr << "readFromSocket() failed" << std::endl;
                                 close_conn = true;
