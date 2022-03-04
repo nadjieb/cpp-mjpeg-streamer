@@ -85,7 +85,12 @@ target_link_libraries(
 )
 
 if(WIN32)
-    target_link_libraries(${NADJIEB_MJPEG_STREAMER_TARGET_NAME} wsock32 ws2_32)
+    target_link_libraries(
+        ${NADJIEB_MJPEG_STREAMER_TARGET_NAME}
+        INTERFACE
+        wsock32
+        ws2_32
+    )
 endif()
 
 # Install a pkg-config file, so other tools can find this.
