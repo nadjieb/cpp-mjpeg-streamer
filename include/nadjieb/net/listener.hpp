@@ -92,6 +92,11 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
                 std::cout << POLLIN << std::endl;
                 std::cout << (POLLRDNORM | POLLRDBAND) << std::endl;
                 std::cout << fds_[i].revents << std::endl;
+                std::cout << (fds_[i].revents & (POLLIN | POLLPRI | POLLOUT | POLLRDNORM | POLLRDBAND | POLLWRBAND))
+                          << std::endl;
+                std::cout << std::hex << POLLIN << std::dec << std::endl;
+                std::cout << std::hex << (POLLRDNORM | POLLRDBAND) << std::dec << std::endl;
+                std::cout << std::hex << fds_[i].revents << std::dec << std::endl;
 
                 panicIfUnexpected(fds_[i].revents != POLLIN, "revents != POLLIN");
 
