@@ -234,6 +234,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
 
     void panicIfUnexpected(bool condition, const std::string& message) {
         if (condition) {
+            std::cout << message << std::endl;
             closeAll();
             throw std::runtime_error(message);
         }
