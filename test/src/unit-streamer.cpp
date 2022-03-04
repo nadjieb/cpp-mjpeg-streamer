@@ -40,55 +40,36 @@ TEST_SUITE("streamer") {
             nadjieb::MJPEGStreamer streamer;
             streamer.start(1235);
 
-            std::cout << 111 << std::endl;
             auto task = std::async(std::launch::async, [&]() {
                 const std::string delimiter = "\r\n\r\n";
                 httplib::Client cli("localhost", 1235);
                 bool stop1 = false;
                 bool stop2 = false;
 
-                std::cout << 222 << std::endl;
-
                 while (!ready) {
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 }
 
-                std::cout << 333 << std::endl;
-
                 auto res1 = cli.Get("/buffer1", [&](const char* data, size_t data_length) {
-                    std::cout << 444 << std::endl;
                     received_buffer1.assign(data, data_length);
                     received_buffer1 = received_buffer1.substr(received_buffer1.find(delimiter) + delimiter.size());
                     stop1 = true;
                     return false;
                 });
 
-                std::cout << 555 << std::endl;
-
                 auto res2 = cli.Get("/buffer2", [&](const char* data, size_t data_length) {
-                    std::cout << 666 << std::endl;
                     received_buffer2.assign(data, data_length);
                     received_buffer2 = received_buffer2.substr(received_buffer2.find(delimiter) + delimiter.size());
                     stop2 = true;
                     return false;
                 });
 
-                std::cout << 777 << std::endl;
-
                 while (!stop1 || !stop2) {
-                    std::cout << stop1 << ' ' << stop2 << std::endl;
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 }
 
-                std::cout << received_buffer1 << std::endl;
-                std::cout << received_buffer2 << std::endl;
-
                 streamer.stop();
-
-                std::cout << 888 << std::endl;
             });
-
-            std::cout << "AAA" << std::endl;
 
             WHEN("The streamer streams buffers") {
                 const std::string buffer1 = "buffer1";
@@ -96,18 +77,11 @@ TEST_SUITE("streamer") {
 
                 ready = true;
 
-                std::cout << "BBB" << std::endl;
-
                 while (streamer.isRunning()) {
-                    std::cout << "CCC" << std::endl;
                     streamer.publish("/buffer1", buffer1);
-                    std::cout << "DDD" << std::endl;
                     streamer.publish("/buffer2", buffer2);
-                    std::cout << "EEE" << std::endl;
                     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
                 }
-
-                std::cout << "FFF" << std::endl;
 
                 task.wait();
 

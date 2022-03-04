@@ -401,21 +401,13 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
         state_ = nadjieb::utils::State::RUNNING;
 
         while (!end_listener_) {
-            std::cout << "listener "
-                      << "AAA" << std::endl;
             int socket_count = pollSockets(&fds_[0], fds_.size(), 100);
 
             panicIfUnexpected(socket_count == NADJIEB_MJPEG_STREAMER_SOCKET_ERROR, "pollSockets() failed");
 
-            std::cout << "listener "
-                      << "BBB" << std::endl;
-
             if (socket_count == 0) {
                 continue;
             }
-
-            std::cout << "listener "
-                      << "CCC" << std::endl;
 
             size_t current_size = fds_.size();
             bool compress_array = false;
@@ -423,9 +415,6 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
                 if (fds_[i].revents == 0) {
                     continue;
                 }
-
-                std::cout << "listener "
-                          << "DDD" << std::endl;
 
                 if (fds_[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
                     on_before_close_cb_(fds_[i].fd);
@@ -435,31 +424,22 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
                     continue;
                 }
 
-                std::cout << "listener "
-                          << "EEE" << std::endl;
+                std::cout << "DEBUG BEGIN" << std::endl;
+                std::cout << POLLIN << std::endl;
+                std::cout << (POLLRDNORM | POLLRDBAND) << std::endl;
+                std::cout << fds_[i].revents << std::endl;
 
                 panicIfUnexpected(fds_[i].revents != POLLIN, "revents != POLLIN");
 
-                std::cout << "listener "
-                          << "FFF" << std::endl;
-
                 if (fds_[i].fd == listen_sd_) {
                     do {
-                        std::cout << "listener "
-                                  << "GGG" << std::endl;
                         auto new_socket = acceptNewSocket(listen_sd_);
                         if (new_socket < 0) {
                             panicIfUnexpected(errno != NADJIEB_MJPEG_STREAMER_EWOULDBLOCK, "accept() failed");
                             break;
                         }
 
-                        std::cout << "listener "
-                                  << "HHH" << std::endl;
-
                         setSocketNonblock(new_socket);
-
-                        std::cout << "listener "
-                                  << "III" << std::endl;
 
                         fds_.emplace_back(NADJIEB_MJPEG_STREAMER_POLLFD{new_socket, POLLIN, 0});
                     } while (true);
@@ -467,15 +447,8 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
                     std::string data;
                     bool close_conn = false;
 
-                    std::cout << "listener "
-                              << "JJJ" << std::endl;
-
                     do {
-                        std::cout << "listener "
-                                  << "KKK" << std::endl;
                         auto size = readFromSocket(fds_[i].fd, &buff[0], buff.size(), 0);
-                        std::cout << "listener "
-                                  << "LLL" << std::endl;
                         if (size < 0) {
                             if (errno != NADJIEB_MJPEG_STREAMER_EWOULDBLOCK) {
                                 std::cerr << "readFromSocket() failed" << std::endl;
@@ -484,35 +457,19 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
                             break;
                         }
 
-                        std::cout << "listener "
-                                  << "MMM" << std::endl;
-
                         if (size == 0) {
                             close_conn = true;
                             break;
                         }
 
-                        std::cout << "listener "
-                                  << "NNN" << std::endl;
-
                         data += buff.substr(0, size);
                     } while (true);
 
-                    std::cout << "listener "
-                              << "OOO" << std::endl;
-
                     if (!close_conn) {
-                        std::cout << "listener "
-                                  << "PPP" << std::endl;
                         auto resp = on_message_cb_(fds_[i].fd, data);
-                        std::cout << "listener "
-                                  << "QQQ" << std::endl;
                         if (resp.close_conn) {
                             close_conn = resp.close_conn;
                         }
-
-                        std::cout << "listener "
-                                  << "RRR" << std::endl;
 
                         if (resp.end_listener) {
                             end_listener_ = resp.end_listener;
@@ -657,13 +614,11 @@ class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Run
 
     void enqueue(const std::string& path, const std::string& buffer) {
         if (end_publisher_) {
-            std::cout << "end_publisher" << payloads_.size() << std::endl;
             return;
         }
 
         auto it = path2clients_.find(path);
         if (it == path2clients_.end()) {
-            std::cout << "path doesnt exists" << payloads_.size() << std::endl;
             return;
         }
 
@@ -671,7 +626,6 @@ class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Run
             std::unique_lock<std::mutex> payloads_lock(payloads_mtx_);
             payloads_.emplace(buffer, path, sockfd);
             payloads_lock.unlock();
-            std::cout << "enqueued" << payloads_.size() << std::endl;
             condition_.notify_one();
         }
     }
@@ -710,12 +664,8 @@ class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Run
 
             std::unique_lock<std::mutex> payloads_lock(payloads_mtx_);
 
-            std::cout << "unload before " << payloads_.size() << std::endl;
-
             Payload payload = std::move(payloads_.front());
             payloads_.pop();
-
-            std::cout << "unload after " << payloads_.size() << std::endl;
 
             payloads_lock.unlock();
             cv_lock.unlock();
