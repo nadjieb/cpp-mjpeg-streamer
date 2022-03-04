@@ -211,7 +211,7 @@ static void panicIfUnexpected(
         if (sockfd != NADJIEB_MJPEG_STREAMER_INVALID_SOCKET) {
             closeSocket(sockfd);
         }
-        throw std::runtime_error(message);
+        throw std::runtime_error(message + " - Error Code: " + std::to_string(NADJIEB_MJPEG_STREAMER_ERRNO));
     }
 }
 
