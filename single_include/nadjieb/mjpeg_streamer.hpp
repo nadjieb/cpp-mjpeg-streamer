@@ -141,15 +141,6 @@ struct HTTPMessage {
 
 #include <WinError.h>
 #include <errno.h>
-
-#if (_WIN32_WINNT >= 0x0600)
-typedef struct pollfd {
-    SOCKET fd;
-    SHORT events;
-    SHORT revents;
-} WSAPOLLFD, *PWSAPOLLFD, FAR* LPWSAPOLLFD;
-WINSOCK_API_LINKAGE int WSAAPI WSAPoll(LPWSAPOLLFD fdArray, ULONG fds, INT timeout);
-#endif  // (_WIN32_WINNT >= 0x0600)
 #elif defined NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX
 #include <arpa/inet.h>
 #include <errno.h>
@@ -278,7 +269,12 @@ static void bindSocket(SocketFD sockfd, const char* ip, int port) {
     ip_addr.sin_family = AF_INET;
     ip_addr.sin_port = htons(port);
     ip_addr.sin_addr.s_addr = INADDR_ANY;
-    auto res = inet_pton(AF_INET, ip, &ip_addr.sin_addr);
+    int res;
+#ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
+    res = InetPton(AF_INET, ip, &ip_addr.sin_addr);
+#else
+    res = inet_pton(AF_INET, ip, &ip_addr.sin_addr);
+#endif
     panicIfUnexpected(res <= 0, "inet_pton() failed", sockfd);
 
     res = ::bind(sockfd, (struct sockaddr*)&ip_addr, sizeof(ip_addr));
