@@ -7,30 +7,10 @@ on:
   pull_request:
 
 jobs:
-  mingw:
-    runs-on: windows-latest
-    strategy:
-      matrix:
-        architecture: [x64, x86]
-
-    steps:
-      - uses: actions/checkout@v2
-      - name: Set up MinGW
-        uses: egor-tensin/setup-mingw@v2
-        with:
-          platform: ${{ matrix.architecture }}
-      - name: cmake
-        run: cmake -S . -B build -G "MinGW Makefiles" -D CMAKE_BUILD_TYPE=Debug -D NADJIEB_MJPEG_STREAMER_BuildTests=On -D NADJIEB_MJPEG_STREAMER_MultipleHeaders=ON
-      - name: build
-        run: cmake --build build --parallel 10
-      - name: test
-        run: cd build ; ctest -j 10 -C Debug --output-on-failure
-
   msvc:
     runs-on: windows-latest
     strategy:
       matrix:
-        build_type: [Debug, Release]
         architecture: [Win32, x64]
 
     steps:
@@ -38,18 +18,6 @@ jobs:
       - name: cmake
         run: cmake -S . -B build -G "Visual Studio 17 2022" -A ${{ matrix.architecture }} -D NADJIEB_MJPEG_STREAMER_BuildTests=On -D NADJIEB_MJPEG_STREAMER_MultipleHeaders=ON
       - name: build
-        run: cmake --build build --config ${{ matrix.build_type }} --parallel 10
+        run: cmake --build build --config Debug --parallel 10
       - name: test
-        run: cd build ; ctest -j 10 -C ${{ matrix.build_type }} --output-on-failure
-
-  msvc_latest:
-    runs-on: windows-latest
-
-    steps:
-      - uses: actions/checkout@v2
-      - name: cmake
-        run: cmake -S . -B build -G "Visual Studio 17 2022" -D NADJIEB_MJPEG_STREAMER_BuildTests=On -D NADJIEB_MJPEG_STREAMER_MultipleHeaders=ON
-      - name: build
-        run: cmake --build build --config Release --parallel 10
-      - name: test
-        run: cd build ; ctest -j 10 -C Release --output-on-failure
+        run: cd build ; ctest -j 10 -C Debug --output-on-failure
