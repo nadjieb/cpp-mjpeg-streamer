@@ -177,6 +177,8 @@ typedef SOCKET SocketFD;
 #define NADJIEB_MJPEG_STREAMER_ECONNABORTED WSAECONNABORTED
 #define NADJIEB_MJPEG_STREAMER_SOCKET_ERROR SOCKET_ERROR
 #define NADJIEB_MJPEG_STREAMER_INVALID_SOCKET INVALID_SOCKET
+#define POLLIN (POLLRDNORM | POLLRDBAND)
+#define POLLOUT POLLWRNORM.
 
 #elif defined NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX || defined NADJIEB_MJPEG_STREAMER_PLATFORM_DARWIN
 #define NADJIEB_MJPEG_STREAMER_POLLFD pollfd
@@ -568,6 +570,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
 
     void panicIfUnexpected(bool condition, const std::string& message) {
         if (condition) {
+            std::cout << message << std::endl;
             closeAll();
             throw std::runtime_error(message);
         }
