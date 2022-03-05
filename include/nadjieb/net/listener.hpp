@@ -163,7 +163,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
 
     void compress() {
         for (auto it = fds_.begin(); it != fds_.end();) {
-            if ((*it).fd == NADJIEB_MJPEG_STREAMER_INVALID_SOCKET) {
+            if (it->fd == NADJIEB_MJPEG_STREAMER_INVALID_SOCKET) {
                 it = fds_.erase(it);
             } else {
                 ++it;
