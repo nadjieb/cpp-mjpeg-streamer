@@ -5,8 +5,6 @@
 #include <future>
 #include <string>
 
-#define private public
-
 #include <nadjieb/mjpeg_streamer.hpp>
 
 TEST_SUITE("streamer") {
@@ -22,9 +20,7 @@ TEST_SUITE("streamer") {
                 streamer.start(1234);
                 streamer.publish("/foo", "foo");
 
-                THEN("The streamer is alive but has no client for \"/foo\"") {
-                    CHECK(streamer.isRunning() == true);
-                }
+                THEN("The streamer is alive but has no client for \"/foo\"") { CHECK(streamer.isRunning() == true); }
             }
 
             WHEN("The streamer stop") {
@@ -47,6 +43,8 @@ TEST_SUITE("streamer") {
             auto task = std::async(std::launch::async, [&]() {
                 const std::string delimiter = "\r\n\r\n";
                 httplib::Client cli("localhost", 1235);
+                bool stop1 = false;
+                bool stop2 = false;
 
                 while (!ready) {
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -54,17 +52,21 @@ TEST_SUITE("streamer") {
 
                 auto res1 = cli.Get("/buffer1", [&](const char* data, size_t data_length) {
                     received_buffer1.assign(data, data_length);
-                    received_buffer1 = received_buffer1.substr(
-                        received_buffer1.find(delimiter) + delimiter.size());
+                    received_buffer1 = received_buffer1.substr(received_buffer1.find(delimiter) + delimiter.size());
+                    stop1 = true;
                     return false;
                 });
 
                 auto res2 = cli.Get("/buffer2", [&](const char* data, size_t data_length) {
                     received_buffer2.assign(data, data_length);
-                    received_buffer2 = received_buffer2.substr(
-                        received_buffer2.find(delimiter) + delimiter.size());
+                    received_buffer2 = received_buffer2.substr(received_buffer2.find(delimiter) + delimiter.size());
+                    stop2 = true;
                     return false;
                 });
+
+                while (!stop1 || !stop2) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                }
 
                 streamer.stop();
             });
@@ -190,7 +192,7 @@ TEST_SUITE("streamer") {
             bool ready = false;
 
             auto client = std::async(std::launch::async, [&]() {
-                auto res = cli.Get("/buffer", [&](const char* data, size_t data_length) {
+                auto res = cli.Get("/buffer", [&](const char*, size_t) {
                     ready = true;
                     return streamer.isRunning();
                 });

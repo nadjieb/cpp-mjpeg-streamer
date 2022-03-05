@@ -1,4 +1,4 @@
-name: ubuntu
+name: Windows
 
 on:
   push:
@@ -7,13 +7,16 @@ on:
   pull_request:
 
 jobs:
-  ubuntu-latest:
-    runs-on: ubuntu-latest
+  msvc:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        architecture: [Win32, x64]
 
     steps:
       - uses: actions/checkout@v2
       - name: cmake
-        run: cmake -S . -B build -D CMAKE_BUILD_TYPE=Debug -DNADJIEB_MJPEG_STREAMER_BuildTests=On -DNADJIEB_MJPEG_STREAMER_MultipleHeaders=ON
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A ${{ matrix.architecture }} -D NADJIEB_MJPEG_STREAMER_BuildTests=On -D NADJIEB_MJPEG_STREAMER_MultipleHeaders=ON
       - name: build
         run: cmake --build build --config Debug --parallel 10
       - name: test

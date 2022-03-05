@@ -44,9 +44,7 @@ class MJPEGStreamer : public nadjieb::utils::NonCopyable {
 
     void start(int port, int num_workers = 1) {
         publisher_.start(num_workers);
-        listener_.withOnMessageCallback(on_message_cb_)
-            .withOnBeforeCloseCallback(on_before_close_cb_)
-            .runAsync(port);
+        listener_.withOnMessageCallback(on_message_cb_).withOnBeforeCloseCallback(on_before_close_cb_).runAsync(port);
 
         while (!isRunning()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -58,9 +56,7 @@ class MJPEGStreamer : public nadjieb::utils::NonCopyable {
         listener_.stop();
     }
 
-    void publish(const std::string& path, const std::string& buffer) {
-        publisher_.enqueue(path, buffer);
-    }
+    void publish(const std::string& path, const std::string& buffer) { publisher_.enqueue(path, buffer); }
 
     void setShutdownTarget(const std::string& target) { shutdown_target_ = target; }
 
@@ -83,8 +79,7 @@ class MJPEGStreamer : public nadjieb::utils::NonCopyable {
             shutdown_res.start_line = "HTTP/1.1 200 OK";
             auto shutdown_res_str = shutdown_res.serialize();
 
-            nadjieb::net::sendViaSocket(
-                sockfd, shutdown_res_str.c_str(), shutdown_res_str.size(), 0);
+            nadjieb::net::sendViaSocket(sockfd, shutdown_res_str.c_str(), shutdown_res_str.size(), 0);
 
             publisher_.stop();
 
@@ -107,8 +102,7 @@ class MJPEGStreamer : public nadjieb::utils::NonCopyable {
         nadjieb::net::HTTPMessage init_res;
         init_res.start_line = "HTTP/1.1 200 OK";
         init_res.headers["Connection"] = "close";
-        init_res.headers["Cache-Control"]
-            = "no-cache, no-store, must-revalidate, pre-check=0, post-check=0, max-age=0";
+        init_res.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, pre-check=0, post-check=0, max-age=0";
         init_res.headers["Pragma"] = "no-cache";
         init_res.headers["Content-Type"] = "multipart/x-mixed-replace; boundary=boundarydonotcross";
         auto init_res_str = init_res.serialize();

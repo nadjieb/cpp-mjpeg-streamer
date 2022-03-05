@@ -7,7 +7,7 @@ on:
   pull_request:
 
 jobs:
-  build:
+  macos-latest:
     runs-on: macos-latest
 
     steps:
@@ -15,6 +15,6 @@ jobs:
       - name: cmake
         run: cmake -S . -B build -D CMAKE_BUILD_TYPE=Debug -DNADJIEB_MJPEG_STREAMER_BuildTests=On -DNADJIEB_MJPEG_STREAMER_MultipleHeaders=ON
       - name: build
-        run: cmake --build build --parallel 10
+        run: cmake --build build --config Debug --parallel 10
       - name: test
-        run: cd build ; ctest -j 10 --output-on-failure --verbose
+        run: cd build ; ctest -j 10 -C Debug --output-on-failure

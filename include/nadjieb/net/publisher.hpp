@@ -17,6 +17,8 @@ namespace nadjieb {
 namespace net {
 class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runnable {
    public:
+    virtual ~Publisher() { stop(); }
+
     void start(int num_workers = 1) {
         state_ = nadjieb::utils::State::BOOTING;
         end_publisher_ = false;
@@ -63,9 +65,7 @@ class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Run
         for (auto& p2c : path2clients_) {
             auto& clients = p2c.second;
             clients.erase(
-                std::remove_if(
-                    clients.begin(), clients.end(),
-                    [&](const SocketFD& sfd) { return sfd == sockfd; }),
+                std::remove_if(clients.begin(), clients.end(), [&](const SocketFD& sfd) { return sfd == sockfd; }),
                 clients.end());
         }
     }
@@ -99,8 +99,7 @@ class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Run
         std::string path;
         SocketFD sockfd;
 
-        Payload(const std::string& b, const std::string& p, const SocketFD& s)
-            : buffer(b), path(p), sockfd(s) {}
+        Payload(const std::string& b, const std::string& p, const SocketFD& s) : buffer(b), path(p), sockfd(s) {}
     };
 
     std::condition_variable condition_;
@@ -137,22 +136,22 @@ class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Run
 
             auto res_str = res.serialize();
 
-            struct pollfd psd;
+            NADJIEB_MJPEG_STREAMER_POLLFD psd;
             psd.fd = payload.sockfd;
-            psd.events = POLLOUT;
+            psd.events = POLLWRNORM;
 
-            auto socket_count = ::poll(&psd, 1, 1);
+            auto socket_count = pollSockets(&psd, 1, 1);
 
-            if (socket_count == SOCKET_ERROR) {
-                throw std::runtime_error("poll() failed\n");
+            if (socket_count == NADJIEB_MJPEG_STREAMER_SOCKET_ERROR) {
+                throw std::runtime_error("pollSockets() failed\n");
             }
 
             if (socket_count == 0) {
                 continue;
             }
 
-            if (psd.revents != POLLOUT) {
-                throw std::runtime_error("revents != POLLOUT\n");
+            if (psd.revents != POLLWRNORM) {
+                throw std::runtime_error("revents != POLLWRNORM\n");
             }
 
             sendViaSocket(payload.sockfd, res_str.c_str(), res_str.size(), 0);
