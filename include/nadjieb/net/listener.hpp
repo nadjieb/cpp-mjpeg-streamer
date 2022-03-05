@@ -83,7 +83,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
                 if (fds_[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
                     on_before_close_cb_(fds_[i].fd);
                     closeSocket(fds_[i].fd);
-                    fds_[i].fd = (SocketFD)-1;
+                    fds_[i].fd = NADJIEB_MJPEG_STREAMER_INVALID_SOCKET;
                     compress_array = true;
                     continue;
                 }
@@ -139,7 +139,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
                     if (close_conn) {
                         on_before_close_cb_(fds_[i].fd);
                         closeSocket(fds_[i].fd);
-                        fds_[i].fd = (SocketFD)-1;
+                        fds_[i].fd = NADJIEB_MJPEG_STREAMER_INVALID_SOCKET;
                         compress_array = true;
                     }
                 }
@@ -163,7 +163,7 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
 
     void compress() {
         for (auto it = fds_.begin(); it != fds_.end();) {
-            if ((*it).fd == NADJIEB_MJPEG_STREAMER_SOCKET_ERROR) {
+            if ((*it).fd == NADJIEB_MJPEG_STREAMER_INVALID_SOCKET) {
                 it = fds_.erase(it);
             } else {
                 ++it;

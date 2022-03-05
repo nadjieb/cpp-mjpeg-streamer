@@ -10,9 +10,6 @@
 #include <ws2tcpip.h>
 
 #pragma comment(lib, "Ws2_32.lib")
-
-#include <WinError.h>
-#include <errno.h>
 #elif defined NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX
 #include <arpa/inet.h>
 #include <errno.h>
