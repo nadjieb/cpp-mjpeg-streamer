@@ -74,8 +74,6 @@ class MJPEGStreamer : public nadjieb::utils::NonCopyable {
         nadjieb::net::HTTPMessage req(message);
         nadjieb::net::OnMessageCallbackResponse res;
 
-        std::cout << "AAA" << std::endl;
-
         if (req.target() == shutdown_target_) {
             nadjieb::net::HTTPMessage shutdown_res;
             shutdown_res.start_line = "HTTP/1.1 200 OK";
@@ -89,8 +87,6 @@ class MJPEGStreamer : public nadjieb::utils::NonCopyable {
             return res;
         }
 
-        std::cout << "BBB" << std::endl;
-
         if (req.method() != "GET") {
             nadjieb::net::HTTPMessage method_not_allowed_res;
             method_not_allowed_res.start_line = "HTTP/1.1 405 Method Not Allowed";
@@ -103,8 +99,6 @@ class MJPEGStreamer : public nadjieb::utils::NonCopyable {
             return res;
         }
 
-        std::cout << "CCC" << std::endl;
-
         nadjieb::net::HTTPMessage init_res;
         init_res.start_line = "HTTP/1.1 200 OK";
         init_res.headers["Connection"] = "close";
@@ -114,8 +108,6 @@ class MJPEGStreamer : public nadjieb::utils::NonCopyable {
         auto init_res_str = init_res.serialize();
 
         nadjieb::net::sendViaSocket(sockfd, init_res_str.c_str(), init_res_str.size(), 0);
-
-        std::cout << "DDD" << std::endl;
 
         publisher_.add(req.target(), sockfd);
 

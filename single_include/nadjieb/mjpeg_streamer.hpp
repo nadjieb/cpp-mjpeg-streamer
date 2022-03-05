@@ -171,21 +171,15 @@ namespace net {
 typedef SOCKET SocketFD;
 #define NADJIEB_MJPEG_STREAMER_POLLFD WSAPOLLFD
 #define NADJIEB_MJPEG_STREAMER_ERRNO WSAGetLastError()
-#define NADJIEB_MJPEG_STREAMER_ENOTSOCK WSAENOTSOCK
 #define NADJIEB_MJPEG_STREAMER_EWOULDBLOCK WSAEWOULDBLOCK
-#define NADJIEB_MJPEG_STREAMER_EINTR WSAEINTR
-#define NADJIEB_MJPEG_STREAMER_ECONNABORTED WSAECONNABORTED
 #define NADJIEB_MJPEG_STREAMER_SOCKET_ERROR SOCKET_ERROR
 #define NADJIEB_MJPEG_STREAMER_INVALID_SOCKET INVALID_SOCKET
 
 #elif defined NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX || defined NADJIEB_MJPEG_STREAMER_PLATFORM_DARWIN
+typedef int SocketFD;
 #define NADJIEB_MJPEG_STREAMER_POLLFD pollfd
 #define NADJIEB_MJPEG_STREAMER_ERRNO errno
-#define NADJIEB_MJPEG_STREAMER_ENOTSOCK EBADF
 #define NADJIEB_MJPEG_STREAMER_EWOULDBLOCK EAGAIN
-#define NADJIEB_MJPEG_STREAMER_EINTR EINTR
-#define NADJIEB_MJPEG_STREAMER_ECONNABORTED ECONNABORTED
-typedef int SocketFD;
 #define NADJIEB_MJPEG_STREAMER_SOCKET_ERROR (-1)
 #define NADJIEB_MJPEG_STREAMER_INVALID_SOCKET (-1)
 #endif
@@ -425,33 +419,24 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
                 panicIfUnexpected(fds_[i].revents != POLLRDNORM, "revents != POLLRDNORM");
 
                 if (fds_[i].fd == listen_sd_) {
-                    std::cout << 111 << std::endl;
                     do {
                         auto new_socket = acceptNewSocket(listen_sd_);
                         if (new_socket == NADJIEB_MJPEG_STREAMER_INVALID_SOCKET) {
-                            std::cout << 444 << std::endl;
                             panicIfUnexpected(
                                 NADJIEB_MJPEG_STREAMER_ERRNO != NADJIEB_MJPEG_STREAMER_EWOULDBLOCK, "accept() failed");
                             break;
                         }
 
-                        std::cout << 222 << std::endl;
-
                         setSocketNonblock(new_socket);
-
-                        std::cout << 333 << std::endl;
 
                         fds_.emplace_back(NADJIEB_MJPEG_STREAMER_POLLFD{new_socket, POLLRDNORM, 0});
                     } while (true);
-                    std::cout << 555 << std::endl;
                 } else {
-                    std::cout << 666 << std::endl;
                     std::string data;
                     bool close_conn = false;
 
                     do {
                         auto size = readFromSocket(fds_[i].fd, &buff[0], buff.size(), 0);
-                        std::cout << 777 << std::endl;
                         if (size == NADJIEB_MJPEG_STREAMER_SOCKET_ERROR) {
                             if (NADJIEB_MJPEG_STREAMER_ERRNO != NADJIEB_MJPEG_STREAMER_EWOULDBLOCK) {
                                 std::cerr << "readFromSocket() failed" << std::endl;
@@ -530,7 +515,6 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
 
     void panicIfUnexpected(bool condition, const std::string& message) {
         if (condition) {
-            std::cout << NADJIEB_MJPEG_STREAMER_ERRNO << std::endl;
             closeAll();
             throw std::runtime_error(message);
         }
@@ -750,8 +734,6 @@ class MJPEGStreamer : public nadjieb::utils::NonCopyable {
         nadjieb::net::HTTPMessage req(message);
         nadjieb::net::OnMessageCallbackResponse res;
 
-        std::cout << "AAA" << std::endl;
-
         if (req.target() == shutdown_target_) {
             nadjieb::net::HTTPMessage shutdown_res;
             shutdown_res.start_line = "HTTP/1.1 200 OK";
@@ -765,8 +747,6 @@ class MJPEGStreamer : public nadjieb::utils::NonCopyable {
             return res;
         }
 
-        std::cout << "BBB" << std::endl;
-
         if (req.method() != "GET") {
             nadjieb::net::HTTPMessage method_not_allowed_res;
             method_not_allowed_res.start_line = "HTTP/1.1 405 Method Not Allowed";
@@ -779,8 +759,6 @@ class MJPEGStreamer : public nadjieb::utils::NonCopyable {
             return res;
         }
 
-        std::cout << "CCC" << std::endl;
-
         nadjieb::net::HTTPMessage init_res;
         init_res.start_line = "HTTP/1.1 200 OK";
         init_res.headers["Connection"] = "close";
@@ -790,8 +768,6 @@ class MJPEGStreamer : public nadjieb::utils::NonCopyable {
         auto init_res_str = init_res.serialize();
 
         nadjieb::net::sendViaSocket(sockfd, init_res_str.c_str(), init_res_str.size(), 0);
-
-        std::cout << "DDD" << std::endl;
 
         publisher_.add(req.target(), sockfd);
 

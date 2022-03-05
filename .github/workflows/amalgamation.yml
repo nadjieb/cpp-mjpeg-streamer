@@ -7,7 +7,7 @@ on:
   pull_request:
 
 jobs:
-  check:
+  amalgamation-check:
     runs-on: ubuntu-latest
 
     steps:
