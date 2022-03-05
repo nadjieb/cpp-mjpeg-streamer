@@ -80,7 +80,7 @@ TEST_SUITE("streamer") {
                 while (streamer.isRunning()) {
                     streamer.publish("/buffer1", buffer1);
                     streamer.publish("/buffer2", buffer2);
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 }
 
                 task.wait();

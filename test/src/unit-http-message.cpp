@@ -40,9 +40,7 @@ TEST_SUITE("HTTPMessage") {
 
                 auto serialized = res.serialize();
 
-                THEN("The size is equal with raw response message") {
-                    CHECK(serialized.size() == raw.size());
-                }
+                THEN("The size is equal with raw response message") { CHECK(serialized.size() == raw.size()); }
             }
         }
     }
