@@ -46,68 +46,110 @@ SOFTWARE.
 #define NADJIEB_MJPEG_STREAMER_VERSION_STRING "3.0.0"
 
 
-// #include <nadjieb/net/http_message.hpp>
+// #include <nadjieb/net/http_request.hpp>
 
 
 #include <sstream>
 #include <string>
 #include <unordered_map>
 
+// Reference https://developer.mozilla.org/en-US/docs/Web/HTTP/Messages#http_requests
+
 namespace nadjieb {
 namespace net {
-struct HTTPMessage {
-    HTTPMessage() = default;
-    HTTPMessage(const std::string& message) { parse(message); }
+class HTTPRequest {
+   public:
+    HTTPRequest(const std::string& message) { parse(message); }
 
-    std::string start_line;
-    std::unordered_map<std::string, std::string> headers;
-    std::string body;
+    void parse(const std::string& message) {
+        std::istringstream iss(message);
 
-    std::string serialize() const {
+        std::getline(iss, method_, ' ');
+        std::getline(iss, target_, ' ');
+        std::getline(iss, version_, '\r');
+
+        std::string line;
+        std::getline(iss, line);
+
+        while (true) {
+            std::getline(iss, line);
+            if (line == "\r") {
+                break;
+            }
+
+            std::string key;
+            std::string value;
+            std::istringstream iss_header(line);
+            std::getline(iss_header, key, ':');
+            std::getline(iss_header, value, ' ');
+            std::getline(iss_header, value, '\r');
+
+            headers_[key] = value;
+        }
+
+        body_ = iss.str().substr(iss.tellg());
+    }
+
+    const std::string& getMethod() const { return method_; }
+
+    const std::string& getTarget() const { return target_; }
+
+    const std::string& getVersion() const { return version_; }
+
+    const std::string& getValue(const std::string& key) { return headers_[key]; }
+
+    const std::string& getBody() const { return body_; }
+
+   private:
+    std::string method_;
+    std::string target_;
+    std::string version_;
+    std::unordered_map<std::string, std::string> headers_;
+    std::string body_;
+};
+}  // namespace net
+}  // namespace nadjieb
+
+// #include <nadjieb/net/http_response.hpp>
+
+
+#include <sstream>
+#include <string>
+#include <unordered_map>
+
+// Reference https://developer.mozilla.org/en-US/docs/Web/HTTP/Messages#http_responses
+
+namespace nadjieb {
+namespace net {
+class HTTPResponse {
+   public:
+    std::string serialize() {
         const std::string delimiter = "\r\n";
         std::stringstream stream;
 
-        stream << start_line << delimiter;
+        stream << version_ << ' ' << status_code_ << ' ' << status_text_ << delimiter;
 
-        for (const auto& header : headers) {
+        for (const auto& header : headers_) {
             stream << header.first << ": " << header.second << delimiter;
         }
 
-        stream << delimiter << body;
+        stream << delimiter << body_;
 
         return stream.str();
     }
 
-    void parse(const std::string& message) {
-        const std::string delimiter = "\r\n";
-        const std::string body_delimiter = "\r\n\r\n";
+    void setVersion(const std::string& version) { version_ = version; }
+    void setStatusCode(const int& status_code) { status_code_ = status_code; }
+    void setStatusText(const std::string& status_text) { status_text_ = status_text; }
+    void setValue(const std::string& key, const std::string& value) { headers_[key] = value; }
+    void setBody(const std::string& body) { body_ = body; }
 
-        start_line = message.substr(0, message.find(delimiter));
-
-        auto raw_headers = message.substr(
-            message.find(delimiter) + delimiter.size(), message.find(body_delimiter) - message.find(delimiter));
-
-        while (raw_headers.find(delimiter) != std::string::npos) {
-            auto header = raw_headers.substr(0, raw_headers.find(delimiter));
-            auto key = header.substr(0, raw_headers.find(':'));
-            auto value = header.substr(raw_headers.find(':') + 1, raw_headers.find(delimiter));
-            while (value[0] == ' ') {
-                value = value.substr(1);
-            }
-            headers[std::string(key)] = std::string(value);
-            raw_headers = raw_headers.substr(raw_headers.find(delimiter) + delimiter.size());
-        }
-
-        body = message.substr(message.find(body_delimiter) + body_delimiter.size());
-    }
-
-    std::string target() const {
-        std::string result(start_line.c_str() + start_line.find(' ') + 1);
-        result = result.substr(0, result.find(' '));
-        return std::string(result);
-    }
-
-    std::string method() const { return start_line.substr(0, start_line.find(' ')); }
+   private:
+    std::string version_;
+    int status_code_;
+    std::string status_text_;
+    std::unordered_map<std::string, std::string> headers_;
+    std::string body_;
 };
 }  // namespace net
 }  // namespace nadjieb
@@ -653,13 +695,11 @@ class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Run
             payloads_lock.unlock();
             cv_lock.unlock();
 
-            HTTPMessage res;
-            res.start_line = "--boundarydonotcross";
-            res.headers["Content-Type"] = "image/jpeg";
-            res.headers["Content-Length"] = std::to_string(payload.second.size());
-            res.body = payload.second;
-
-            auto res_str = res.serialize();
+            std::string res_str
+                = "--nadjiebmjpegstreamer\r\n"
+                  "Content-Type: image/jpeg\r\n"
+                  "Content-Length: "
+                  + std::to_string(payload.second.size()) + "\r\n\r\n" + payload.second;
 
             const std::lock_guard<std::mutex> lock(p2c_mtx_);
             for (auto& client : path2clients_[payload.first]) {
@@ -726,47 +766,53 @@ class MJPEGStreamer : public nadjieb::utils::NonCopyable {
 
     nadjieb::net::OnMessageCallback on_message_cb_ = [&](const nadjieb::net::SocketFD& sockfd,
                                                          const std::string& message) {
-        nadjieb::net::HTTPMessage req(message);
-        nadjieb::net::OnMessageCallbackResponse res;
+        nadjieb::net::HTTPRequest req(message);
+        nadjieb::net::OnMessageCallbackResponse cb_res;
 
-        if (req.target() == shutdown_target_) {
-            nadjieb::net::HTTPMessage shutdown_res;
-            shutdown_res.start_line = "HTTP/1.1 200 OK";
+        if (req.getTarget() == shutdown_target_) {
+            nadjieb::net::HTTPResponse shutdown_res;
+            shutdown_res.setVersion(req.getVersion());
+            shutdown_res.setStatusCode(200);
+            shutdown_res.setStatusText("OK");
             auto shutdown_res_str = shutdown_res.serialize();
 
             nadjieb::net::sendViaSocket(sockfd, shutdown_res_str.c_str(), shutdown_res_str.size(), 0);
 
             publisher_.stop();
 
-            res.end_listener = true;
-            return res;
+            cb_res.end_listener = true;
+            return cb_res;
         }
 
-        if (req.method() != "GET") {
-            nadjieb::net::HTTPMessage method_not_allowed_res;
-            method_not_allowed_res.start_line = "HTTP/1.1 405 Method Not Allowed";
+        if (req.getMethod() != "GET") {
+            nadjieb::net::HTTPResponse method_not_allowed_res;
+            method_not_allowed_res.setVersion(req.getVersion());
+            method_not_allowed_res.setStatusCode(405);
+            method_not_allowed_res.setStatusText("Method Not Allowed");
             auto method_not_allowed_res_str = method_not_allowed_res.serialize();
 
             nadjieb::net::sendViaSocket(
                 sockfd, method_not_allowed_res_str.c_str(), method_not_allowed_res_str.size(), 0);
 
-            res.close_conn = true;
-            return res;
+            cb_res.close_conn = true;
+            return cb_res;
         }
 
-        nadjieb::net::HTTPMessage init_res;
-        init_res.start_line = "HTTP/1.1 200 OK";
-        init_res.headers["Connection"] = "close";
-        init_res.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, pre-check=0, post-check=0, max-age=0";
-        init_res.headers["Pragma"] = "no-cache";
-        init_res.headers["Content-Type"] = "multipart/x-mixed-replace; boundary=boundarydonotcross";
+        nadjieb::net::HTTPResponse init_res;
+        init_res.setVersion(req.getVersion());
+        init_res.setStatusCode(200);
+        init_res.setStatusText("OK");
+        init_res.setValue("Connection", "close");
+        init_res.setValue("Cache-Control", "no-cache, no-store, must-revalidate, pre-check=0, post-check=0, max-age=0");
+        init_res.setValue("Pragma", "no-cache");
+        init_res.setValue("Content-Type", "multipart/x-mixed-replace; boundary=nadjiebmjpegstreamer");
         auto init_res_str = init_res.serialize();
 
         nadjieb::net::sendViaSocket(sockfd, init_res_str.c_str(), init_res_str.size(), 0);
 
-        publisher_.add(req.target(), sockfd);
+        publisher_.add(req.getTarget(), sockfd);
 
-        return res;
+        return cb_res;
     };
 
     nadjieb::net::OnBeforeCloseCallback on_before_close_cb_
