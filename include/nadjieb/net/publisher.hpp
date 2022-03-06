@@ -127,13 +127,11 @@ class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Run
             payloads_lock.unlock();
             cv_lock.unlock();
 
-            HTTPMessage res;
-            res.start_line = "--boundarydonotcross";
-            res.headers["Content-Type"] = "image/jpeg";
-            res.headers["Content-Length"] = std::to_string(payload.second.size());
-            res.body = payload.second;
-
-            auto res_str = res.serialize();
+            std::string res_str
+                = "--nadjiebmjpegstreamer\r\n"
+                  "Content-Type: image/jpeg\r\n"
+                  "Content-Length: "
+                  + std::to_string(payload.second.size()) + "\r\n\r\n" + payload.second;
 
             const std::lock_guard<std::mutex> lock(p2c_mtx_);
             for (auto& client : path2clients_[payload.first]) {

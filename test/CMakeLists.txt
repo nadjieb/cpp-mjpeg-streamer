@@ -43,7 +43,8 @@ target_include_directories(doctest_main PRIVATE include)
 
 set(files
     src/unit-version.cpp
-    src/unit-http-message.cpp
+    src/unit-http-request.cpp
+    src/unit-http-response.cpp
     src/unit-socket.cpp
     src/unit-listener.cpp
     src/unit-streamer.cpp
