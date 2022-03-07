@@ -82,6 +82,6 @@ check-single-includes:
 	@for x in $(SRCS); do \
 	  echo "Checking self-sufficiency of $$x..." ; \
 	  echo "#include <$$x>\nint main() {}\n" | $(SED) 's|include/||' > single_include_test.cpp; \
-	  $(CXX) $(CXXFLAGS) -Iinclude -std=c++11 single_include_test.cpp -o single_include_test; \
+	  $(CXX) $(CXXFLAGS) -Iinclude -std=c++17 single_include_test.cpp -o single_include_test; \
 	  rm -f single_include_test.cpp single_include_test; \
 	done

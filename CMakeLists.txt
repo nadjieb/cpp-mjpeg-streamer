@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.8)
 
 ##
 ## PROJECT
@@ -68,7 +68,7 @@ add_library(${PROJECT_NAME}::${NADJIEB_MJPEG_STREAMER_TARGET_NAME} ALIAS ${NADJI
 if (${CMAKE_VERSION} VERSION_LESS "3.8.0")
     target_compile_features(${NADJIEB_MJPEG_STREAMER_TARGET_NAME} INTERFACE cxx_range_for)
 else()
-    target_compile_features(${NADJIEB_MJPEG_STREAMER_TARGET_NAME} INTERFACE cxx_std_11)
+    target_compile_features(${NADJIEB_MJPEG_STREAMER_TARGET_NAME} INTERFACE cxx_std_17)
 endif()
 
 target_include_directories(

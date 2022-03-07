@@ -135,6 +135,23 @@ TEST_SUITE("streamer") {
         }
     }
 
+    TEST_CASE("Not Found") {
+        GIVEN("A streamer initialize") {
+            nadjieb::MJPEGStreamer streamer;
+            streamer.start(1240);
+
+            CHECK(streamer.isRunning() == true);
+
+            WHEN("Client request a non exist path") {
+                httplib::Client cli("localhost", 1240);
+
+                auto res = cli.Get("/foo");
+
+                THEN("Connection closed") { CHECK(res->status == 404); }
+            }
+        }
+    }
+
     TEST_CASE("Client disconnect when streamer publish buffer") {
         WHEN("A client request image stream and disconnect it") {
             nadjieb::MJPEGStreamer streamer;

@@ -43,7 +43,7 @@ class MJPEGStreamer : public nadjieb::utils::NonCopyable {
    public:
     virtual ~MJPEGStreamer() { stop(); }
 
-    void start(int port, int num_workers = 1) {
+    void start(int port, int num_workers = std::thread::hardware_concurrency()) {
         publisher_.start(num_workers);
         listener_.withOnMessageCallback(on_message_cb_).withOnBeforeCloseCallback(on_before_close_cb_).runAsync(port);
 
@@ -104,6 +104,19 @@ class MJPEGStreamer : public nadjieb::utils::NonCopyable {
             return cb_res;
         }
 
+        if (!publisher_.pathExists(req.getTarget())) {
+            nadjieb::net::HTTPResponse not_found_res;
+            not_found_res.setVersion(req.getVersion());
+            not_found_res.setStatusCode(404);
+            not_found_res.setStatusText("Not Found");
+            auto not_found_res_str = not_found_res.serialize();
+
+            nadjieb::net::sendViaSocket(sockfd, not_found_res_str.c_str(), not_found_res_str.size(), 0);
+
+            cb_res.close_conn = true;
+            return cb_res;
+        }
+
         nadjieb::net::HTTPResponse init_res;
         init_res.setVersion(req.getVersion());
         init_res.setStatusCode(200);
@@ -116,7 +129,7 @@ class MJPEGStreamer : public nadjieb::utils::NonCopyable {
 
         nadjieb::net::sendViaSocket(sockfd, init_res_str.c_str(), init_res_str.size(), 0);
 
-        publisher_.add(req.getTarget(), sockfd);
+        publisher_.add(sockfd, req.getTarget());
 
         return cb_res;
     };

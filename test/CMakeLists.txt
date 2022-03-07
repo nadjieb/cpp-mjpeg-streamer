@@ -33,7 +33,7 @@ add_library(doctest_main OBJECT src/unit.cpp)
 if (${CMAKE_VERSION} VERSION_LESS "3.8.0")
     target_compile_features(doctest_main PUBLIC cxx_range_for)
 else()
-    target_compile_features(doctest_main PUBLIC cxx_std_11)
+    target_compile_features(doctest_main PUBLIC cxx_std_17)
 endif()
 target_include_directories(doctest_main PRIVATE include)
 
