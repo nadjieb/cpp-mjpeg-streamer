@@ -32,7 +32,9 @@ TEST_SUITE("streamer") {
     }
 
     TEST_CASE("publish image stream") {
-        GIVEN("A client ready to receive image streams") {
+        GIVEN("The streamer streams buffers") {
+            const std::string buffer1 = "buffer1";
+            const std::string buffer2 = "buffer2";
             std::string received_buffer1;
             std::string received_buffer2;
             bool ready = false;
@@ -41,6 +43,15 @@ TEST_SUITE("streamer") {
             streamer.start(1235);
 
             auto task = std::async(std::launch::async, [&]() {
+                while (streamer.isRunning()) {
+                    streamer.publish("/buffer1", buffer1);
+                    streamer.publish("/buffer2", buffer2);
+                    ready = true;
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                }
+            });
+
+            WHEN("A client ready to receive image streams") {
                 const std::string delimiter = "\r\n\r\n";
                 httplib::Client cli("localhost", 1235);
                 bool stop1 = false;
@@ -69,19 +80,6 @@ TEST_SUITE("streamer") {
                 }
 
                 streamer.stop();
-            });
-
-            WHEN("The streamer streams buffers") {
-                const std::string buffer1 = "buffer1";
-                const std::string buffer2 = "buffer2";
-
-                ready = true;
-
-                while (streamer.isRunning()) {
-                    streamer.publish("/buffer1", buffer1);
-                    streamer.publish("/buffer2", buffer2);
-                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                }
 
                 task.wait();
 
