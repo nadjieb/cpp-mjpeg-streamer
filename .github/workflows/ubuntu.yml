@@ -17,4 +17,4 @@ jobs:
       - name: build
         run: cmake --build build --config Debug --parallel 10
       - name: test
-        run: cd build ; ctest -j 10 -C Debug --output-on-failure
+        run: cd build ; ctest -j 10 --output-on-failure
