@@ -20,8 +20,8 @@ int main() {
     // if you want to change the target to graceful shutdown:
     //      streamer.setShutdownTarget("/stop");
 
-    // By default 1 worker is used for streaming
-    // if you want to use 4 workers:
+    // By default std::thread::hardware_concurrency() workers is used for streaming
+    // if you want to use 4 workers instead:
     //      streamer.start(8080, 4);
     streamer.start(8080);
 
