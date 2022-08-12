@@ -57,11 +57,11 @@ int main() {
 
     // By default "/shutdown" is the target to graceful shutdown the streamer
     // if you want to change the target to graceful shutdown:
-    //      streamer.setShutdownTarget("/stop");
+    //   streamer.setShutdownTarget("/stop");
 
     // By default std::thread::hardware_concurrency() workers is used for streaming
     // if you want to use 4 workers instead:
-    //      streamer.start(8080, 4);
+    //   streamer.start(8080, 4);
     streamer.start(8080);
 
     // Visit /shutdown or another defined target to stop the loop and graceful shutdown
