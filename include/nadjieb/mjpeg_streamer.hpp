@@ -4,7 +4,7 @@ https://github.com/nadjieb/cpp-mjpeg-streamer
 
 MIT License
 
-Copyright (c) 2020-2022 Muhammad Kamal Nadjieb
+Copyright (c) 2020-2023 Muhammad Kamal Nadjieb
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

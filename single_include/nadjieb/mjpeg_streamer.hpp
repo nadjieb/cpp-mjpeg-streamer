@@ -4,7 +4,7 @@ https://github.com/nadjieb/cpp-mjpeg-streamer
 
 MIT License
 
-Copyright (c) 2020-2022 Muhammad Kamal Nadjieb
+Copyright (c) 2020-2023 Muhammad Kamal Nadjieb
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -173,8 +173,12 @@ class HTTPResponse {
 
 
 #ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
-#undef UNICODE
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif  // WIN32_LEAN_AND_MEAN
+
+#undef UNICODE
+
 #include <windows.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
