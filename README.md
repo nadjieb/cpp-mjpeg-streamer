@@ -1,6 +1,6 @@
 ![C++ MJPEG over HTTP Library](https://raw.githubusercontent.com/nadjieb/cpp-mjpeg-streamer/master/doc/images/cpp_mjpeg_streamer.png)
 
-[![Ubuntu](https://github.com/nadjieb/cpp-mjpeg-streamer/workflows/Ubuntu/badge.svg)](https://github.com/nadjieb/cpp-mjpeg-streamer/actions?query=workflow%3AUbuntu)
+[![Ubuntu](https://github.com/nadjieb/cpp-mjpeg-streamer/workflows/ubuntu/badge.svg)](https://github.com/nadjieb/cpp-mjpeg-streamer/actions?query=workflow%3Aubuntu)
 [![macOS](https://github.com/nadjieb/cpp-mjpeg-streamer/workflows/macOS/badge.svg)](https://github.com/nadjieb/cpp-mjpeg-streamer/actions?query=workflow%3AmacOS)
 [![Windows](https://github.com/nadjieb/cpp-mjpeg-streamer/workflows/Windows/badge.svg)](https://github.com/nadjieb/cpp-mjpeg-streamer/actions?query=workflow%3AWindows)
 [![Coverage Status](https://coveralls.io/repos/github/nadjieb/cpp-mjpeg-streamer/badge.svg?branch=master)](https://coveralls.io/github/nadjieb/cpp-mjpeg-streamer?branch=master)
