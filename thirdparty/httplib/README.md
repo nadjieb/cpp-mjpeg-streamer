@@ -7,12 +7,12 @@ A C++11 single-file header-only cross platform HTTP/HTTPS library.
 
 It's extremely easy to setup. Just include the **httplib.h** file in your code!
 
-NOTE: This is a multi-threaded 'blocking' HTTP library. If you are looking for a 'non-blocking' library, this is not the one that you want.
+NOTE: This library uses 'blocking' socket I/O. If you are looking for a library with 'non-blocking' socket I/O, this is not the one that you want.
 
 Simple examples
 ---------------
 
-#### Server
+#### Server (Multi-threaded)
 
 ```c++
 #define CPPHTTPLIB_OPENSSL_SUPPORT
@@ -48,17 +48,14 @@ res->status;
 res->body;
 ```
 
-### Try out the examples on Repl.it!
-
-1. Run server at https://repl.it/@yhirose/cpp-httplib-server
-2. Run client at https://repl.it/@yhirose/cpp-httplib-client
-
 SSL Support
 -----------
 
 SSL support is available with `CPPHTTPLIB_OPENSSL_SUPPORT`. `libssl` and `libcrypto` should be linked.
 
-NOTE: cpp-httplib currently supports only version 1.1.1.
+NOTE: cpp-httplib currently supports only version 1.1.1 and 3.0.
+
+NOTE for macOS: cpp-httplib now can use system certs with `CPPHTTPLIB_USE_CERTS_FROM_MACOSX_KEYCHAIN`. `CoreFoundation` and `Security` should be linked with `-framework`.
 
 ```c++
 #define CPPHTTPLIB_OPENSSL_SUPPORT
@@ -70,6 +67,7 @@ httplib::SSLServer svr("./cert.pem", "./key.pem");
 // Client
 httplib::Client cli("https://localhost:1234"); // scheme + host
 httplib::SSLClient cli("localhost:1234"); // host
+httplib::SSLClient cli("localhost", 1234); // host, port
 
 // Use your CA bundle
 cli.set_ca_cert_path("./ca-bundle.crt");
@@ -78,7 +76,7 @@ cli.set_ca_cert_path("./ca-bundle.crt");
 cli.enable_server_certificate_verification(false);
 ```
 
-Note: When using SSL, it seems impossible to avoid SIGPIPE in all cases, since on some operating systems, SIGPIPE can only be suppressed on a per-message basis, but there is no way to make the OpenSSL library do so for its internal communications. If your program needs to avoid being terminated on SIGPIPE, the only fully general way might be to set up a signal handler for SIGPIPE to handle or ignore it yourself.
+NOTE: When using SSL, it seems impossible to avoid SIGPIPE in all cases, since on some operating systems, SIGPIPE can only be suppressed on a per-message basis, but there is no way to make the OpenSSL library do so for its internal communications. If your program needs to avoid being terminated on SIGPIPE, the only fully general way might be to set up a signal handler for SIGPIPE to handle or ignore it yourself.
 
 Server
 ------
@@ -96,11 +94,20 @@ int main(void)
     res.set_content("Hello World!", "text/plain");
   });
 
+  // Match the request path against a regular expression
+  // and extract its captures
   svr.Get(R"(/numbers/(\d+))", [&](const Request& req, Response& res) {
     auto numbers = req.matches[1];
     res.set_content(numbers, "text/plain");
   });
 
+  // Capture the second segment of the request path as "id" path param
+  svr.Get("/users/:id", [&](const Request& req, Response& res) {
+    auto user_id = req.path_params.at("id");
+    res.set_content(user_id, "text/plain");
+  });
+
+  // Extract values from HTTP headers and URL query params
   svr.Get("/body-header-param", [](const Request& req, Response& res) {
     if (req.has_header("Content-Length")) {
       auto val = req.get_header_value("Content-Length");
@@ -185,6 +192,15 @@ The followings are built-in mappings:
 
 NOTE: These static file server methods are not thread-safe.
 
+### File request handler
+
+```cpp
+// The handler is called right before the response is sent to a client
+svr.set_file_request_handler([](const Request &req, Response &res) {
+  ...
+});
+```
+
 ### Logging
 
 ```cpp
@@ -208,14 +224,22 @@ svr.set_error_handler([](const auto& req, auto& res) {
 The exception handler gets called if a user routing handler throws an error.
 
 ```cpp
-svr.set_exception_handler([](const auto& req, auto& res, std::exception &e) {
-  res.status = 500;
+svr.set_exception_handler([](const auto& req, auto& res, std::exception_ptr ep) {
   auto fmt = "<h1>Error 500</h1><p>%s</p>";
   char buf[BUFSIZ];
-  snprintf(buf, sizeof(buf), fmt, e.what());
+  try {
+    std::rethrow_exception(ep);
+  } catch (std::exception &e) {
+    snprintf(buf, sizeof(buf), fmt, e.what());
+  } catch (...) { // See the following NOTE
+    snprintf(buf, sizeof(buf), fmt, "Unknown Exception");
+  }
   res.set_content(buf, "text/html");
+  res.status = 500;
 });
 ```
+
+NOTE: if you don't provide the `catch (...)` block for a rethrown exception pointer, an uncaught exception will end up causing the server crash. Be careful!
 
 ### Pre routing handler
 
@@ -288,7 +312,7 @@ svr.Get("/stream", [&](const Request &req, Response &res) {
   res.set_content_provider(
     data->size(), // Content length
     "text/plain", // Content type
-    [data](size_t offset, size_t length, DataSink &sink) {
+    [&, data](size_t offset, size_t length, DataSink &sink) {
       const auto &d = *data;
       sink.write(&d[offset], std::min(length, DATA_CHUNK_SIZE));
       return true; // return 'false' if you want to cancel the process.
@@ -328,6 +352,27 @@ svr.Get("/chunked", [&](const Request& req, Response& res) {
       sink.write("789", 3);
       sink.done(); // No more data
       return true; // return 'false' if you want to cancel the process.
+    }
+  );
+});
+```
+
+With trailer:
+
+```cpp
+svr.Get("/chunked", [&](const Request& req, Response& res) {
+  res.set_header("Trailer", "Dummy1, Dummy2");
+  res.set_chunked_content_provider(
+    "text/plain",
+    [](size_t offset, DataSink &sink) {
+      sink.write("123", 3);
+      sink.write("345", 3);
+      sink.write("789", 3);
+      sink.done_with_trailer({
+        {"Dummy1", "DummyVal1"},
+        {"Dummy2", "DummyVal2"}
+      });
+      return true;
     }
   );
 });
@@ -431,7 +476,7 @@ int main(void)
     }
   } else {
     auto err = res.error();
-    ...
+    std::cout << "HTTP error: " << httplib::to_string(err) << std::endl;
   }
 }
 ```
@@ -464,7 +509,9 @@ enum Error {
   SSLConnection,
   SSLLoadingCerts,
   SSLServerVerification,
-  UnsupportedMultipartBoundaryChars
+  UnsupportedMultipartBoundaryChars,
+  Compression,
+  ConnectionTimeout,
 };
 ```
 
@@ -475,6 +522,10 @@ httplib::Headers headers = {
   { "Accept-Encoding", "gzip, deflate" }
 };
 auto res = cli.Get("/hi", headers);
+```
+or
+```c++
+auto res = cli.Get("/hi", {{"Accept-Encoding", "gzip, deflate"}});
 ```
 or
 ```c++
@@ -793,14 +844,14 @@ Include `httplib.h` before `Windows.h` or include `Windows.h` by defining `WIN32
 #include <httplib.h>
 ```
 
-Note: cpp-httplib officially supports only the latest Visual Studio. It might work with former versions of Visual Studio, but I can no longer verify it. Pull requests are always welcome for the older versions of Visual Studio unless they break the C++11 conformance.
+NOTE: cpp-httplib officially supports only the latest Visual Studio. It might work with former versions of Visual Studio, but I can no longer verify it. Pull requests are always welcome for the older versions of Visual Studio unless they break the C++11 conformance.
 
-Note: Windows 8 or lower and Cygwin on Windows are not supported.
+NOTE: Windows 8 or lower, Visual Studio 2013 or lower, and Cygwin on Windows are not supported.
 
 License
 -------
 
-MIT license (© 2021 Yuji Hirose)
+MIT license (© 2023 Yuji Hirose)
 
 Special Thanks To
 -----------------
