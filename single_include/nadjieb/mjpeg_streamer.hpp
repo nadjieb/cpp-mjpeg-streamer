@@ -29,6 +29,7 @@ SOFTWARE.
 
 // #include <nadjieb/utils/version.hpp>
 
+
 /// The major version number
 #define NADJIEB_MJPEG_STREAMER_VERSION_MAJOR 3
 
@@ -39,14 +40,14 @@ SOFTWARE.
 #define NADJIEB_MJPEG_STREAMER_VERSION_PATCH 0
 
 /// The complete version number
-#define NADJIEB_MJPEG_STREAMER_VERSION_CODE                                                    \
-    (NADJIEB_MJPEG_STREAMER_VERSION_MAJOR * 10000 + NADJIEB_MJPEG_STREAMER_VERSION_MINOR * 100 \
-     + NADJIEB_MJPEG_STREAMER_VERSION_PATCH)
+#define NADJIEB_MJPEG_STREAMER_VERSION_CODE (NADJIEB_MJPEG_STREAMER_VERSION_MAJOR * 10000 + NADJIEB_MJPEG_STREAMER_VERSION_MINOR * 100 + NADJIEB_MJPEG_STREAMER_VERSION_PATCH)
 
 /// Version number as string
 #define NADJIEB_MJPEG_STREAMER_VERSION_STRING "3.0.0"
 
+
 // #include <nadjieb/net/http_request.hpp>
+
 
 #include <sstream>
 #include <string>
@@ -111,6 +112,7 @@ class HTTPRequest {
 
 // #include <nadjieb/net/http_response.hpp>
 
+
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -154,9 +156,12 @@ class HTTPResponse {
 
 // #include <nadjieb/net/listener.hpp>
 
+
 // #include <nadjieb/net/socket.hpp>
 
+
 // #include <nadjieb/utils/platform.hpp>
+
 
 #if defined _MSC_VER || defined __MINGW32__
 #define NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
@@ -165,6 +170,7 @@ class HTTPResponse {
 #else
 #define NADJIEB_MJPEG_STREAMER_PLATFORM_LINUX
 #endif
+
 
 #ifdef NADJIEB_MJPEG_STREAMER_PLATFORM_WINDOWS
 #ifndef WIN32_LEAN_AND_MEAN
@@ -333,6 +339,7 @@ static int pollSockets(NADJIEB_MJPEG_STREAMER_POLLFD* fds, size_t nfds, long tim
 
 // #include <nadjieb/utils/non_copyable.hpp>
 
+
 namespace nadjieb {
 namespace utils {
 class NonCopyable {
@@ -351,6 +358,7 @@ class NonCopyable {
 
 // #include <nadjieb/utils/runnable.hpp>
 
+
 namespace nadjieb {
 namespace utils {
 enum class State { UNSPECIFIED = 0, NEW, BOOTING, RUNNING, TERMINATING, TERMINATED };
@@ -365,6 +373,7 @@ class Runnable {
 };
 }  // namespace utils
 }  // namespace nadjieb
+
 
 #include <functional>
 #include <iostream>
@@ -559,11 +568,14 @@ class Listener : public nadjieb::utils::NonCopyable, public nadjieb::utils::Runn
 
 // #include <nadjieb/net/publisher.hpp>
 
+
 // #include <nadjieb/net/socket.hpp>
 
 // #include <nadjieb/net/topic.hpp>
 
+
 // #include <nadjieb/net/socket.hpp>
+
 
 #include <mutex>
 #include <shared_mutex>
@@ -647,6 +659,7 @@ class Topic {
 // #include <nadjieb/utils/non_copyable.hpp>
 
 // #include <nadjieb/utils/runnable.hpp>
+
 
 #include <algorithm>
 #include <condition_variable>
@@ -804,6 +817,7 @@ class Publisher : public nadjieb::utils::NonCopyable, public nadjieb::utils::Run
 // #include <nadjieb/net/socket.hpp>
 
 // #include <nadjieb/utils/non_copyable.hpp>
+
 
 #include <string>
 
